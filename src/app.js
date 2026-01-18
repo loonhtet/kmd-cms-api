@@ -3,6 +3,7 @@ import { config } from "dotenv";
 import { connectDB, disconnectDB } from "./config/db.js";
 import adminRouter from "./routes/admin.route.js";
 import authRouter from "./routes/auth.route.js";
+import emailRouter from "./routes/email.route.js";
 
 config();
 connectDB();
@@ -14,6 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/v1/admins", adminRouter);
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/email", emailRouter);
 
 app.listen(3000, () => {
      console.log("Server running on port http://localhost:3000");
