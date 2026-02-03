@@ -3,11 +3,12 @@ console.log("Write Routes in here");
 =======
 import { Router } from "express";
 import {
-     createAdmin,
-     deleteAdmin,
-     getAdmin,
-     getAdmins,
-     updateAdmin,
+  createAdmin,
+  deleteAdmin,
+  getSingleAdmin,
+  getAdmins,
+  updateAdmin,
+  getAdminLookup,
 } from "../controllers/admin.controller.js";
 import { adminSchema } from "../schemas/admin.schema.js";
 import validateRequest from "../utils/validateRequest.js";
@@ -16,7 +17,9 @@ const adminRouter = Router();
 
 adminRouter.get("/", getAdmins);
 
-adminRouter.get("/:id", getAdmin);
+adminRouter.get("/:id", getSingleAdmin);
+
+adminRouter.get("/lookup", getAdminLookup);
 
 adminRouter.post("/", validateRequest(adminSchema), createAdmin);
 
