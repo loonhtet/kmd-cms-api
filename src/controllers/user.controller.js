@@ -2,7 +2,7 @@ import { prisma } from "../config/db.js";
 import bcrypt from "bcrypt";
 import paginate from "../utils/pagination.js";
 
-const getRoles = async (req, res) => {
+const getUsers = async (req, res) => {
   try {
     const result = await paginate(prisma.user, req, {
       select: {
