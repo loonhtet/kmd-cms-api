@@ -21,8 +21,6 @@ const userSchema = z.object({
     .optional()
     .nullable()
     .or(z.literal("")),
-
-  register: z.boolean().optional().default(false),
 });
 
 export { userSchema };

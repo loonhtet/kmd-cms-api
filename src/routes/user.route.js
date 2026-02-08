@@ -8,7 +8,7 @@ import {
   getUserLookup,
 } from "../controllers/user.controller.js";
 import { userSchema } from "../schemas/user.schema.js";
-import validateRequest from "../utils/validateRequest.js";
+import validate from "../utils/validate.js";
 
 const userRouter = Router();
 
@@ -18,7 +18,7 @@ userRouter.get("/:id", getSingleUser);
 
 userRouter.get("/lookup", getUserLookup);
 
-userRouter.post("/", validateRequest(userSchema), createUser);
+userRouter.post("/", validate(userSchema), createUser);
 
 userRouter.put("/:id", updateUser);
 

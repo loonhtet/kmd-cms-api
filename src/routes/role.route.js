@@ -1,7 +1,7 @@
 import { Router } from "express";
 
 import { roleSchema } from "../schemas/role.schema.js";
-import validateRequest from "../utils/validateRequest.js";
+import validate from "../utils/validate.js";
 import {
   createRole,
   getRoles,
@@ -13,7 +13,7 @@ const roleRouter = Router();
 
 roleRouter.get("/", getRoles);
 
-roleRouter.post("/", validateRequest(roleSchema), createRole);
+roleRouter.post("/", validate(roleSchema), createRole);
 
 roleRouter.put("/:id", updateRole);
 

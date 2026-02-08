@@ -10,7 +10,6 @@ const getUsers = async (req, res) => {
         email: true,
         name: true,
         image: true,
-        register: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -26,7 +25,7 @@ const getUsers = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: "Failed to fetch Roles",
+      message: "Failed to fetch Users",
       error: error.message,
     });
   }
@@ -69,7 +68,6 @@ const getSingleUser = async (req, res) => {
         email: true,
         name: true,
         image: true,
-        register: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -97,7 +95,7 @@ const getSingleUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { image, email, name, password, register } = req.body;
+    const { image, email, name, password } = req.body;
 
     const userExists = await prisma.user.findUnique({
       where: { email },
@@ -114,7 +112,6 @@ const createUser = async (req, res) => {
         name,
         password: hashedPassword,
         image: image || null,
-        register: register || false,
       },
     });
 
@@ -134,7 +131,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { image, email, name, register } = req.body;
+    const { image, email, name } = req.body;
 
     const userExists = await prisma.user.findUnique({
       where: { id },
@@ -163,7 +160,6 @@ const updateUser = async (req, res) => {
       ...(email && { email }),
       ...(name && { name }),
       ...(image !== undefined && { image: image || null }),
-      ...(register !== undefined && { register }),
     };
 
     const updatedUser = await prisma.user.update({
@@ -175,7 +171,6 @@ const updateUser = async (req, res) => {
         name: true,
         role: true,
         image: true,
-        register: true,
         createdAt: true,
         updatedAt: true,
       },

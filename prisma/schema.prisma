@@ -12,7 +12,8 @@ model User {
   email     String   @unique
   name      String   @db.VarChar(100)
   password  String   @db.VarChar(100)
-  register  Boolean  @default(false)
+  resetOTP       String?
+  resetOTPExpiry DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

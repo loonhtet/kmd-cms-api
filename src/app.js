@@ -6,6 +6,7 @@ import authRouter from "./routes/auth.route.js";
 // import emailRouter from "./routes/email.route.js";
 import cors from "cors";
 import roleRouter from "./routes/role.route.js";
+import { protect } from "./middleware/authMiddleware.js";
 
 config();
 connectDB();
@@ -22,8 +23,8 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api/v1/users", userRouter);
-app.use("/api/v1/roles", roleRouter);
+app.use("/api/v1/users", protect, userRouter);
+app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/auth", authRouter);
 // app.use("/api/v1/email", emailRouter);
 
