@@ -1,33 +1,35 @@
 {
-     "name": "kmd-cms-api",
-     "version": "0.0.0",
-     "private": true,
-     "type": "module",
-     "scripts": {
-          "start": "node ./src/app.js",
-          "dev": "nodemon ./src/app.js",
-          "seed": "node ./prisma/seed.js"
-     },
-     "dependencies": {
-          "@prisma/adapter-pg": "^7.2.0",
-          "@prisma/client": "^7.2.0",
-          "bcrypt": "^6.0.0",
-          "cookie-parser": "~1.4.4",
-          "debug": "~2.6.9",
-          "dotenv": "^17.2.3",
-          "express": "~4.16.1",
-          "jsonwebtoken": "^9.0.3",
-          "morgan": "~1.9.1",
-          "nodemailer": "^7.0.12",
-          "zod": "^4.3.5"
-     },
-     "devDependencies": {
-          "@eslint/js": "^9.39.2",
-          "eslint": "^9.39.2",
-          "globals": "^17.0.0",
-          "morgan": "~1.9.1",
-          "nodemon": "^3.1.11",
-          "pg": "^8.17.2",
-          "prisma": "^7.2.0"
-     }
+  "name": "kmd-cms-api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./src/app.js",
+    "dev": "nodemon ./src/app.js",
+    "build": "prisma generate",
+    "postinstall": "prisma generate"
+  },
+  "type": "module",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.2.0",
+    "@prisma/client": "^7.2.0",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "~1.4.4",
+    "cors": "^2.8.6",
+    "debug": "~2.6.9",
+    "dotenv": "^17.2.3",
+    "express": "~4.16.1",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "~1.9.1",
+    "nodemailer": "^7.0.12",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
+    "morgan": "~1.9.1",
+    "nodemon": "^3.1.11",
+    "pg": "^8.17.1",
+    "prisma": "^7.2.0"
+  }
 }
