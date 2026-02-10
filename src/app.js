@@ -3,11 +3,11 @@ import { config } from "dotenv";
 import { connectDB, disconnectDB } from "./config/db.js";
 import userRouter from "./routes/user.route.js";
 import authRouter from "./routes/auth.route.js";
-// import emailRouter from "./routes/email.route.js";
 import cors from "cors";
 import roleRouter from "./routes/role.route.js";
 import { protect } from "./middleware/authMiddleware.js";
 import allocateRouter from "./routes/allocate.route.js";
+import emailRouter from "./routes/email.route.js";
 
 config();
 connectDB();
@@ -28,8 +28,7 @@ app.use("/api/v1/users", protect, userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/allocate", protect, allocateRouter);
-
-// app.use("/api/v1/email", emailRouter);
+app.use("/api/v1/email",emailRouter);
 
 app.use((req, res) => {
   res.status(404).json({
