@@ -2,6 +2,7 @@ import { prisma } from "../config/db.js";
 import generateToken from "../utils/generateToken.js";
 import bcrypt from "bcrypt";
 import crypto from "crypto";
+import { sendEmail } from "../services/email.service.js";
 
 const login = async (req, res) => {
   try {
@@ -181,7 +182,15 @@ const resendOTP = async (req, res) => {
       },
     });
 
-    // await sendOTPEmail(user.email, otp, user.name);
+     await sendEmail({
+      to: user.email,
+      type: "otp",
+      variables: {
+        name: user.name,
+        otp: otp,
+      },
+    });
+
 
     res.status(201).json({
       status: "success",
