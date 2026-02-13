@@ -70,7 +70,14 @@ const sendOTP = async (req, res) => {
       },
     });
 
-    // await sendOTPEmail(user.email, otp, user.name);
+    await sendEmail({
+      to: user.email,
+      type: "otp",
+      variables: {
+        otp,
+        name: user.name,
+      },
+    });
 
     res.status(200).json({
       status: "success",
@@ -182,7 +189,7 @@ const resendOTP = async (req, res) => {
       },
     });
 
-     await sendEmail({
+    await sendEmail({
       to: user.email,
       type: "otp",
       variables: {
@@ -190,7 +197,6 @@ const resendOTP = async (req, res) => {
         otp: otp,
       },
     });
-
 
     res.status(201).json({
       status: "success",
