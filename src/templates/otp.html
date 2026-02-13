@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 40px 20px;
+      background-color: #f4f7f9;
+      font-family: &quot;Segoe UI&quot;, Arial, sans-serif;
+    "
+  >
+    <div
+      style="
+        max-width: 500px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        padding: 40px 30px;
+        text-align: center;
+      "
+    >
+      <div style="margin-bottom: 20px">
+        <img
+          src="https://pub-650254544ec747889d03da02b42a49d7.r2.dev/otp.png"
+          alt="otp-vector"
+          width="100"
+          height="100"
+        />
+      </div>
+      <h2 style="color: #1686d7; font-size: 20px; margin-bottom: 25px">
+        Your one-time code is
+      </h2>
+      <div
+        style="
+          display: inline-block;
+          padding: 15px 40px;
+          border: 1px solid #000000;
+          font-size: 24px;
+          font-weight: bold;
+          letter-spacing: 2px;
+          color: #000000;
+          margin-bottom: 30px;
+        "
+      >
+        {{otp}}
+      </div>
+      <p
+        style="
+          font-size: 14px;
+          color: #555555;
+          line-height: 1.6;
+          margin: 0;
+          padding: 0 20px;
+        "
+      >
+        Please verify you're really you by entering this 6-digit code when you
+        log in. Just a heads up, this code will expire in 10 minutes for
+        security reasons.
+      </p>
+    </div>
+  </body>
+</html>

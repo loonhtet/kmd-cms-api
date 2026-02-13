@@ -31,6 +31,8 @@ authRouter.post(
   resetPassword,
 );
 
-authRouter.post("/resend-otp", validate(verifyOTPSchema), resendOTP);
+authRouter.post("/resend-otp", resendOTP);
+
+// authRouter.post("/resend-otp", validate(verifyOTPSchema), resendOTP);
 
 export default authRouter;
