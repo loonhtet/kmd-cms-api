@@ -8,12 +8,8 @@ const getUsers = async (req, res) => {
 
     const whereClause = role
       ? {
-          roles: {
-            some: {
-              role: {
-                name: role,
-              },
-            },
+          role: {
+            role: role, // Changed: direct access instead of 'some'
           },
         }
       : {};
@@ -27,13 +23,10 @@ const getUsers = async (req, res) => {
         image: true,
         createdAt: true,
         updatedAt: true,
-        roles: {
+        role: {
+          // Changed: singular instead of array
           select: {
-            role: {
-              select: {
-                name: true,
-              },
-            },
+            role: true,
           },
         },
       },
@@ -44,7 +37,7 @@ const getUsers = async (req, res) => {
 
     const transformedData = result.data.map((user) => ({
       ...user,
-      roles: user.roles.map((ur) => ur.role.name),
+      role: user.role?.role || null, // Changed: return single role or null
     }));
 
     res.status(200).json({
@@ -67,12 +60,8 @@ const getUserLookup = async (req, res) => {
 
     const whereClause = role
       ? {
-          roles: {
-            some: {
-              role: {
-                name: role,
-              },
-            },
+          role: {
+            role: role, // Changed: direct access
           },
         }
       : {};
@@ -115,13 +104,10 @@ const getSingleUser = async (req, res) => {
         image: true,
         createdAt: true,
         updatedAt: true,
-        roles: {
+        role: {
+          // Changed: singular
           select: {
-            role: {
-              select: {
-                name: true,
-              },
-            },
+            role: true,
           },
         },
         studentProfile: {
@@ -173,7 +159,7 @@ const getSingleUser = async (req, res) => {
 
     const transformedUser = {
       ...user,
-      roles: user.roles.map((ur) => ur.role.name),
+      role: user.role?.role || null, // Changed: return single role or null
     };
 
     res.status(200).json({
@@ -204,6 +190,16 @@ const createUser = async (req, res) => {
       });
     }
 
+    const validRoles = ["STUDENT", "TUTOR", "STAFF", "ADMIN_STAFF"];
+    const normalizedRole = role.toUpperCase();
+
+    if (!validRoles.includes(normalizedRole)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid role",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await prisma.$transaction(async (tx) => {
@@ -216,40 +212,35 @@ const createUser = async (req, res) => {
         },
       });
 
-      let roleRecord = await tx.role.findUnique({
-        where: { name: role },
-      });
-
-      if (!roleRecord) {
-        roleRecord = await tx.role.create({
-          data: { name: role },
-        });
-      }
-
+      // Removed: Role table lookup - no longer needed
+      // Create UserRole entry directly
       await tx.userRole.create({
         data: {
           userId: user.id,
-          roleId: roleRecord.id,
+          role: normalizedRole,
         },
       });
 
-      if (role === "student") {
+      if (normalizedRole === "STUDENT") {
         await tx.student.create({
           data: {
             userId: user.id,
           },
         });
-      } else if (role === "tutor") {
+      } else if (normalizedRole === "TUTOR") {
         await tx.tutor.create({
           data: {
             userId: user.id,
           },
         });
-      } else if (role === "staff" || role === "admin_staff") {
+      } else if (
+        normalizedRole === "STAFF" ||
+        normalizedRole === "ADMIN_STAFF"
+      ) {
         await tx.staff.create({
           data: {
             userId: user.id,
-            isAdmin: role === "admin_staff",
+            isAdmin: normalizedRole === "ADMIN_STAFF",
           },
         });
       }
@@ -314,13 +305,10 @@ const updateUser = async (req, res) => {
         image: true,
         createdAt: true,
         updatedAt: true,
-        roles: {
+        role: {
+          // Changed: singular
           select: {
-            role: {
-              select: {
-                name: true,
-              },
-            },
+            role: true,
           },
         },
       },

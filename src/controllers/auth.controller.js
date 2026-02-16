@@ -8,7 +8,17 @@ const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: {
+        role: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -25,6 +35,13 @@ const login = async (req, res) => {
       status: "success",
       message: "User logged in successfully",
       token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: user.role?.role || null, // Include role in response
+      },
     });
   } catch (error) {
     console.log(error);
@@ -49,19 +66,15 @@ const logout = async (req, res) => {
 const sendOTP = async (req, res) => {
   try {
     const { email } = req.body;
-
     const user = await prisma.user.findUnique({ where: { email } });
-
     if (!user) {
       return res.status(400).json({
         status: "error",
         message: "Email does not exist",
       });
     }
-
     const otp = crypto.randomInt(100000, 999999).toString();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -69,7 +82,6 @@ const sendOTP = async (req, res) => {
         resetOTPExpiry: otpExpiry,
       },
     });
-
     await sendEmail({
       to: user.email,
       type: "otp",
@@ -78,7 +90,6 @@ const sendOTP = async (req, res) => {
         name: user.name,
       },
     });
-
     res.status(200).json({
       status: "success",
       message: "OTP sent successfully",
@@ -95,7 +106,6 @@ const sendOTP = async (req, res) => {
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
-
     const user = await prisma.user.findFirst({
       where: {
         email: email,
@@ -103,14 +113,12 @@ const verifyOTP = async (req, res) => {
         resetOTPExpiry: { gte: new Date() },
       },
     });
-
     if (!user) {
       return res.status(400).json({
         status: "error",
-        message: "Email does not exist",
+        message: "Invalid or expired OTP",
       });
     }
-
     res.status(200).json({
       status: "success",
       message: "OTP verified successfully",
@@ -128,7 +136,6 @@ const verifyOTP = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
-
     const user = await prisma.user.findFirst({
       where: {
         email: email,
@@ -136,13 +143,10 @@ const resetPassword = async (req, res) => {
         resetOTPExpiry: { gte: new Date() },
       },
     });
-
     if (!user) {
       return res.status(400).json({ message: "Something went wrong" });
     }
-
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-
     await prisma.user.update({
       where: { id: user.id },
       data: {
@@ -151,7 +155,6 @@ const resetPassword = async (req, res) => {
         resetOTPExpiry: null,
       },
     });
-
     res.status(201).json({
       status: "success",
       message: "Password has been reset successfully",
@@ -165,50 +168,4 @@ const resetPassword = async (req, res) => {
   }
 };
 
-const resendOTP = async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const user = await prisma.user.findUnique({ where: { email } });
-
-    if (!user) {
-      return res.status(400).json({
-        status: "error",
-        message: "Email does not exist",
-      });
-    }
-
-    const otp = crypto.randomInt(100000, 999999).toString();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        resetOTP: otp,
-        resetOTPExpiry: otpExpiry,
-      },
-    });
-
-    await sendEmail({
-      to: user.email,
-      type: "otp",
-      variables: {
-        name: user.name,
-        otp: otp,
-      },
-    });
-
-    res.status(201).json({
-      status: "success",
-      message: "A new OTP has been sent to your email",
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Could not resend OTP",
-      error: error.message,
-    });
-  }
-};
-
-export { login, logout, sendOTP, verifyOTP, resetPassword, resendOTP };
+export { login, logout, sendOTP, verifyOTP, resetPassword };
