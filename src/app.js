@@ -77,3 +77,5 @@ process.on("SIGTERM", () => {
   disconnectDB();
   process.exit(0);
 });
+
+export default app;
