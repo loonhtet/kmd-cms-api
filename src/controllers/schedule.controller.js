@@ -3,12 +3,13 @@ import paginate from "../utils/pagination.js";
 
 const getSchedules = async (req, res) => {
   try {
-    const { studentId, tutorId, type } = req.query;
+    const { studentId, tutorId, type, isCompleted } = req.query;
 
     const whereClause = {
       ...(studentId && { studentId }),
       ...(tutorId && { tutorId }),
       ...(type && { type: type.toUpperCase() }),
+      ...(isCompleted !== undefined && { isCompleted: isCompleted === "true" }),
     };
 
     const result = await paginate(prisma.schedule, req, {
