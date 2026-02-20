@@ -48,9 +48,9 @@ export function initSocket(server) {
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id, "User ID:", socket.user.id);
 
-    socket.on("join", (userId) => {
-      socket.join(`user_${userId}`);
-      console.log(`User ${userId} joined room user_${userId}`);
+    socket.on("join", () => {
+      socket.join(`user_${socket.user.id}`);
+      console.log(`User ${socket.user.id} joined room user_${socket.user.id}`);
     });
 
     socket.on("disconnect", () => {

@@ -13,6 +13,8 @@ import conversationRouter from "./routes/conversation.route.js";
 import { initSocket } from "./socket.js";
 import http from "http";
 import emailRouter from "./routes/email.route.js";
+import rateLimit from "express-rate-limit";
+import scheduleRouter from "./routes/schedule.route.js";
 
 config();
 connectDB();
@@ -22,6 +24,15 @@ const server = http.createServer(app);
 const io = initSocket(server);
 app.set("io", io);
 
+
+const globalLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 100,
+  message: {
+    success: false,
+    message: "Too many requests, please try again later.",
+  },
+});
 
 app.use(
   cors({
@@ -33,14 +44,17 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(globalLimiter);
+
+app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", protect, userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
-app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/allocate", protect, allocateRouter);
 app.use("/api/v1/conversation", protect, conversationRouter );
 
 
 // app.use("/api/v1/email", emailRouter);
+app.use("/api/v1/schedule", protect, scheduleRouter);
 app.use("/api/v1/email", emailRouter);
 
 app.use((req, res) => {
@@ -57,9 +71,8 @@ app.use((err, req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Server running on port http://localhost:${PORT}`);
+server.listen(process.env.PORT, () => {
+  console.log(`Server running on http://localhost:${process.env.PORT}`);
 });
 
 process.on("unhandledRejection", (err) => {
@@ -79,3 +92,5 @@ process.on("SIGTERM", () => {
   disconnectDB();
   process.exit(0);
 });
+
+export default app;

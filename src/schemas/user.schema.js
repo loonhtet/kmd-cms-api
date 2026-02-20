@@ -15,7 +15,7 @@ const userSchema = z.object({
     .min(6, "Password must be at least 6 characters long")
     .max(50, "Password must not exceed 50 characters"),
 
-  role: z.enum(["student", "tutor", "staff", "admin_staff"], {
+  role: z.enum(["STUDENT", "TUTOR", "STAFF", "ADMIN_STAFF"], {
     required_error: "Role is required",
     invalid_type_error:
       "Role must be one of: student, tutor, staff, admin_staff",

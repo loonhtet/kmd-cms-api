@@ -107,20 +107,12 @@ const assignStudentToTutor = async (req, res) => {
       },
     });
 
-    if (updatedStudent) {
-      console.log("stu",student)
-      const existingConversation =await prisma.conversation.findFirst({
-        where: {
-          studentId: student.userId,
-          tutorId:tutor.userId,
-        },
-      });
-
-      if (!existingConversation) {
+    if (updatedStudents.length > 0) {
+      for (const student of updatedStudents) {
         await prisma.conversation.create({
           data: {
-            studentId: student.userId,
-            tutorId: tutor.userId,
+            studentId: student.id,
+            tutorId: tutorId,
           },
         });
       }

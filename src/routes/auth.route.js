@@ -2,7 +2,6 @@ import { Router } from "express";
 import {
   login,
   logout,
-  resendOTP,
   resetPassword,
   sendOTP,
   verifyOTP,
@@ -30,9 +29,5 @@ authRouter.post(
   validate(resetPasswordSchema),
   resetPassword,
 );
-
-authRouter.post("/resend-otp", resendOTP);
-
-// authRouter.post("/resend-otp", validate(verifyOTPSchema), resendOTP);
 
 export default authRouter;

@@ -100,27 +100,24 @@ const getAllConversations = async (req, res) => {
     const whereClause = {
       OR: [{ studentId: userId }, { tutorId: userId }],
     };
-    const conversations =await prisma.conversation.findMany({
+    const conversations = await prisma.conversation.findMany({
       where: whereClause,
       select: {
         id: true,
         studentId: true,
         tutorId: true,
-        student:{
-           select:{
-             name:true,
-            email:true
-           }
+        User_Conversation_studentIdToUser: {
+          select: {
+            name: true,
+            email: true,
+          },
         },
-        tutor:{
-            select:{
-                name:true,
-                email:true
-            }
-        }
-      },
-      orderBy: {
-        updatedAt: "desc",
+        User_Conversation_tutorIdToUser: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
       },
     });
    
