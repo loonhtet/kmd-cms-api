@@ -23,8 +23,8 @@ export const createBlog = async (req, res) => {
       data: {
         title,
         content,
-        // userId: req.user.id,
-        userId:"991c57be-eedb-480c-a900-4982a3114451",
+        userId: req.user.id,
+        // userId:"991c57be-eedb-480c-a900-4982a3114451",
         assetKey: assetKey || null,
         assetType: assetKey ? assetType : null,
       },
