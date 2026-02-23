@@ -1,10 +1,10 @@
 import { prisma } from "../config/db.js";
+import { generateSignedUrl } from "../utils/cloudflare.js";
 
 export const createBlog = async (req, res) => {
   try {
-    const { title, content, assetURL, assetType, tagIds } = req.body;
+    const { title, content, assetKey, assetType, tagIds } = req.body;
 
-    // Validate required fields
     if (!title || !content) {
       return res.status(400).json({
         status: "error",
@@ -12,27 +12,24 @@ export const createBlog = async (req, res) => {
       });
     }
 
-    // Validate asset logic
-    if (assetURL && !assetType) {
+    if (assetKey && !assetType) {
       return res.status(400).json({
         status: "error",
-        message: "assetType is required when assetURL is provided",
+        message: "assetType is required when assetKey is provided",
       });
     }
 
-    // Create blog first
     const blog = await prisma.blog.create({
       data: {
         title,
         content,
         // userId: req.user.id,
-        userId: "991c57be-eedb-480c-a900-4982a3114451",
-        assetURL: assetURL || null,
-        assetType: assetURL ? assetType : null,
+        userId:"991c57be-eedb-480c-a900-4982a3114451",
+        assetKey: assetKey || null,
+        assetType: assetKey ? assetType : null,
       },
     });
 
-    // Attach tags if provided
     if (tagIds?.length) {
       for (const tagName of tagIds) {
         await prisma.blog.update({
@@ -49,21 +46,29 @@ export const createBlog = async (req, res) => {
       }
     }
 
+    let assetUrl = null;
+    if (blog.assetKey) {
+      assetUrl = await generateSignedUrl(blog.assetKey);
+    }
+
     res.status(201).json({
       status: "success",
       message: "Blog created successfully",
-      data: blog,
+      data: {
+        ...blog,
+        assetUrl,
+      },
     });
+
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: "Failed to create blog",
-      error: error.message,
+      message: error.message,
     });
   }
 };
 
-// GET ALL BLOGS
+
 export const getAllBlogs = async (req, res) => {
   try {
     const blogs = await prisma.blog.findMany({
@@ -74,27 +79,42 @@ export const getAllBlogs = async (req, res) => {
       orderBy: { createdAt: "desc" },
     });
 
+    const blogsWithUrl = await Promise.all(
+      blogs.map(async (blog) => {
+        let assetUrl = null;
+
+        if (blog.assetKey) {
+          assetUrl = await generateSignedUrl(blog.assetKey);
+        }
+
+        return {
+          ...blog,
+          assetUrl,
+        };
+      })
+    );
+
     res.status(200).json({
       status: "success",
-      message: "Blogs fetched successfully",
-      data: blogs,
+      data: blogsWithUrl,
     });
+
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: "Failed to fetch blogs",
-      error: error.message,
+      message: error.message,
     });
   }
 };
 
-// UPDATE BLOG
+
 export const updateBlog = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, assetURL, assetType, tagIds } = req.body;
+    const { title, content, assetKey, assetType, tagIds } = req.body;
 
     const blog = await prisma.blog.findUnique({ where: { id } });
+
     if (!blog) {
       return res.status(404).json({
         status: "error",
@@ -107,13 +127,12 @@ export const updateBlog = async (req, res) => {
       data: {
         title: title || blog.title,
         content: content || blog.content,
-        assetURL: assetURL ?? blog.assetURL,
-        assetType: assetURL ? assetType : blog.assetType,
+        assetKey: assetKey ?? blog.assetKey,
+        assetType: assetKey ? assetType : blog.assetType,
       },
     });
 
     if (tagIds?.length) {
-      // Reset tags
       await prisma.blog.update({
         where: { id },
         data: { tags: { set: [] } },
@@ -134,16 +153,23 @@ export const updateBlog = async (req, res) => {
       }
     }
 
+    let assetUrl = null;
+    if (updatedBlog.assetKey) {
+      assetUrl = await generateSignedUrl(updatedBlog.assetKey);
+    }
+
     res.status(200).json({
       status: "success",
-      message: "Blog updated successfully",
-      data: updatedBlog,
+      data: {
+        ...updatedBlog,
+        assetUrl,
+      },
     });
+
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: "Failed to update blog",
-      error: error.message,
+      message: error.message,
     });
   }
 };

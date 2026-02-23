@@ -9,6 +9,7 @@ import { protect } from "./middleware/authMiddleware.js";
 import allocateRouter from "./routes/allocate.route.js";
 import emailRouter from "./routes/email.route.js";
 import blogRouter from "./routes/blog.route.js";
+import uploadRouter from "./routes/upload.route.js";
 import rateLimit from "express-rate-limit";
 import scheduleRouter from "./routes/schedule.route.js";
 
@@ -43,8 +44,9 @@ app.use("/api/v1/users", protect, userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/allocate", protect, allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
-app.use("/api/v1/email", protect,emailRouter);
+app.use("/api/v1/email", emailRouter);
 app.use("/api/v1/blog", blogRouter);
+app.use("/api/v1/file", uploadRouter);
 
 app.use((req, res) => {
   res.status(404).json({

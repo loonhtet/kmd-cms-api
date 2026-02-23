@@ -98,7 +98,7 @@ model Blog {
   userId     String
   user       User       @relation(fields: [userId], references: [id])
 
-  assetURL   String?
+  assetKey   String?
   assetType  AssetType?
 
   createdAt  DateTime   @default(now())
