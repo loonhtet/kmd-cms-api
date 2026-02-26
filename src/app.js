@@ -11,6 +11,7 @@ import emailRouter from "./routes/email.route.js";
 import blogRouter from "./routes/blog.route.js";
 import rateLimit from "express-rate-limit";
 import scheduleRouter from "./routes/schedule.route.js";
+import documentRouter from "./routes/document.route.js";
 
 config();
 connectDB();
@@ -43,6 +44,7 @@ app.use("/api/v1/users", protect, userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/allocate", protect, allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
+app.use("/api/v1/documents", protect, documentRouter);
 app.use("/api/v1/email", protect, emailRouter);
 app.use("/api/v1/blog", protect, blogRouter);
 
@@ -60,7 +62,7 @@ app.use((err, req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
