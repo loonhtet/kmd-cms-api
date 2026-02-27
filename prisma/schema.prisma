@@ -98,6 +98,7 @@ model Blog {
   content    String
   userId     String
   user       User       @relation(fields: [userId], references: [id])
+  slug       String?     @unique
 
   assetKey   String?
   assetType  AssetType?

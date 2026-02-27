@@ -1,26 +1,124 @@
 import { prisma } from "../config/db.js";
 import paginate from "../utils/pagination.js";
-import {uploadToCloudflare, deleteFromCloudflare, generateSignedUrl } from "../utils/cloudflare.js";
+import {
+  uploadToCloudflare,
+  deleteFromCloudflare,
+  generateSignedUrl,
+} from "../utils/cloudflare.js";
+import slugify from "slugify";
+
+export const getBlogs = async (req, res) => {
+  try {
+    const { userId, tag, cursor, limit = 10 } = req.query;
+    const take = parseInt(limit);
+
+    const whereClause = {
+      ...(userId && { userId }),
+      ...(tag && {
+        tags: {
+          some: { title: tag },
+        },
+      }),
+    };
+
+    const blogs = await prisma.blog.findMany({
+      where: whereClause,
+      take: take + 1, // fetch one extra to check if there's a next page
+      ...(cursor && {
+        cursor: { id: cursor },
+        skip: 1, // skip the cursor itself
+      }),
+      include: {
+        tags: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const hasNextPage = blogs.length > take;
+    const data = hasNextPage ? blogs.slice(0, -1) : blogs;
+    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
+
+    const blogsWithUrl = await Promise.all(
+      data.map(async (blog) => {
+        const assetUrl = blog.assetKey
+          ? await generateSignedUrl(blog.assetKey)
+          : null;
+        return { ...blog, assetUrl };
+      }),
+    );
+
+    res.status(200).json({
+      status: "success",
+      data: blogsWithUrl,
+      pagination: {
+        nextCursor,
+        hasNextPage,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
+
+export const getSingleBlog = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const blog = await prisma.blog.findUnique({
+      where: { slug },
+      include: {
+        tags: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+    if (!blog) {
+      return res.status(404).json({
+        status: "error",
+        message: "Blog not found",
+      });
+    }
+    let assetUrl = null;
+    if (blog.assetKey) {
+      assetUrl = await generateSignedUrl(blog.assetKey);
+    }
+    res.status(200).json({
+      status: "success",
+      data: {
+        ...blog,
+        assetUrl,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+};
 
 export const createBlog = async (req, res) => {
   let uploadedKey = null;
-
   try {
     const { title, content, tagIds } = req.body;
 
-    if (!title || !content) {
-      return res.status(400).json({
-        status: "error",
-        message: "Title and content are required",
-      });
-    }
-
     let assetType = null;
-
-    // Upload if file exists
     if (req.file) {
       uploadedKey = await uploadToCloudflare(req.file, "blogs/");
-
       if (req.file.mimetype.startsWith("image")) {
         assetType = "IMAGE";
       } else if (req.file.mimetype.startsWith("video")) {
@@ -28,16 +126,24 @@ export const createBlog = async (req, res) => {
       }
     }
 
+    // Generate unique slug
+    const baseSlug = slugify(title, { lower: true, strict: true });
+    const existingSlug = await prisma.blog.findUnique({
+      where: { slug: baseSlug },
+    });
+    const slug = existingSlug ? `${baseSlug}-${Date.now()}` : baseSlug;
+
     const blog = await prisma.blog.create({
       data: {
         title,
         content,
+        slug,
         userId: req.user.id,
         assetKey: uploadedKey,
         assetType,
         tags: tagIds?.length
           ? {
-              connectOrCreate: tagIds.map(tagName => ({
+              connectOrCreate: tagIds.map((tagName) => ({
                 where: { title: tagName },
                 create: { title: tagName },
               })),
@@ -45,8 +151,8 @@ export const createBlog = async (req, res) => {
           : undefined,
       },
       include: {
-      tags: true, 
-    },
+        tags: true,
+      },
     });
 
     const assetUrl = blog.assetKey
@@ -61,12 +167,14 @@ export const createBlog = async (req, res) => {
       },
     });
 
+    res.status(201).json({
+      status: "success",
+      message: "Blog uploaded successfully",
+    });
   } catch (error) {
-    // Cleanup if DB fails after upload
     if (uploadedKey) {
       await deleteFromCloudflare(uploadedKey);
     }
-
     res.status(500).json({
       status: "error",
       message: error.message,
@@ -76,13 +184,11 @@ export const createBlog = async (req, res) => {
 
 export const updateBlog = async (req, res) => {
   let newUploadedKey = null;
-
   try {
     const { id } = req.params;
     const { title, content, tagIds, removeFile } = req.body;
 
     const blog = await prisma.blog.findUnique({ where: { id } });
-
     if (!blog) {
       return res.status(404).json({
         status: "error",
@@ -93,26 +199,43 @@ export const updateBlog = async (req, res) => {
     let assetKey = blog.assetKey;
     let assetType = blog.assetType;
 
-    // Case 1: New file uploaded
     if (req.file) {
       newUploadedKey = await uploadToCloudflare(req.file, "blogs/");
-
-      // delete old file
       if (blog.assetKey) {
         await deleteFromCloudflare(blog.assetKey);
       }
-
       assetKey = newUploadedKey;
-      assetType = req.file.mimetype.startsWith("image")
-        ? "IMAGE"
-        : "VIDEO";
-    }
-
-    // Case 2: User removes file
-    if (removeFile === "true" && blog.assetKey) {
+      assetType = req.file.mimetype.startsWith("image") ? "IMAGE" : "VIDEO";
+    } else if (removeFile === "true" && blog.assetKey) {
       await deleteFromCloudflare(blog.assetKey);
       assetKey = null;
       assetType = null;
+    }
+
+    let slug = blog.slug;
+    if (title && title !== blog.title) {
+      const baseSlug = slugify(title, { lower: true, strict: true });
+      const existingSlug = await prisma.blog.findUnique({
+        where: { slug: baseSlug },
+      });
+      slug =
+        existingSlug && existingSlug.id !== id
+          ? `${baseSlug}-${Date.now()}`
+          : baseSlug;
+    }
+
+    let tagsUpdate = undefined;
+    if (tagIds !== undefined) {
+      tagsUpdate =
+        tagIds.length > 0
+          ? {
+              set: [],
+              connectOrCreate: tagIds.map((tagName) => ({
+                where: { title: tagName },
+                create: { title: tagName },
+              })),
+            }
+          : { set: [] };
     }
 
     const updatedBlog = await prisma.blog.update({
@@ -120,21 +243,14 @@ export const updateBlog = async (req, res) => {
       data: {
         title: title ?? blog.title,
         content: content ?? blog.content,
+        slug,
         assetKey,
         assetType,
-        tags: tagIds?.length
-          ? {
-              set: [],
-              connectOrCreate: tagIds.map(tagName => ({
-                where: { title: tagName },
-                create: { title: tagName },
-              })),
-            }
-          : undefined,
+        tags: tagsUpdate,
       },
       include: {
-      tags: true, 
-    },
+        tags: true,
+      },
     });
 
     const assetUrl = updatedBlog.assetKey
@@ -148,13 +264,10 @@ export const updateBlog = async (req, res) => {
         assetUrl,
       },
     });
-
   } catch (error) {
-    // 🔥 Cleanup if upload succeeded but update failed
     if (newUploadedKey) {
       await deleteFromCloudflare(newUploadedKey);
     }
-
     res.status(500).json({
       status: "error",
       message: error.message,
@@ -162,7 +275,6 @@ export const updateBlog = async (req, res) => {
   }
 };
 
-// DELETE BLOG
 export const deleteBlog = async (req, res) => {
   try {
     const { id } = req.params;
@@ -175,7 +287,6 @@ export const deleteBlog = async (req, res) => {
       });
     }
 
-     // Delete media from Cloudflare if it exists
     if (blog.assetKey) {
       await deleteFromCloudflare(blog.assetKey);
     }
@@ -186,106 +297,6 @@ export const deleteBlog = async (req, res) => {
       status: "success",
       message: "Blog deleted successfully",
     });
-  } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Failed to delete blog",
-      error: error.message,
-    });
-  }
-};
-
-export const getAllBlogs = async (req, res) => {
-  try {
-    // 1. Optional filters from query (e.g., by user or tag)
-    const { userId, tag } = req.query;
-
-    const whereClause = {
-      ...(userId && { userId }),
-      ...(tag && {
-        tags: {
-          some: { title: tag },
-        },
-      }),
-    };
-
-    // 2. Use paginate helper
-    const result = await paginate(prisma.blog, req, {
-      where: whereClause,
-      include: {
-        tags: true,
-        user: true,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // 3. Generate signed URLs for assetKey
-    const blogsWithUrl = await Promise.all(
-      result.data.map(async (blog) => {
-        let assetUrl = null;
-        if (blog.assetKey) {
-          assetUrl = await generateSignedUrl(blog.assetKey);
-        }
-        return { ...blog, assetUrl };
-      })
-    );
-
-    // 4. Return paginated response
-    res.status(200).json({
-      status: "success",
-      data: blogsWithUrl,
-      pagination: result.pagination,
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Failed to fetch blogs",
-      error: error.message,
-    });
-  }
-};
-
-export const getSingleBlog = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Fetch the blog with tags and user info
-    const blog = await prisma.blog.findUnique({
-      where: { id },
-      include: {
-        tags: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    if (!blog) {
-      return res.status(404).json({
-        status: "error",
-        message: "Blog not found",
-      });
-    }
-
-    // Generate signed URL if blog has asset
-    let assetUrl = null;
-    if (blog.assetKey) {
-      assetUrl = await generateSignedUrl(blog.assetKey);
-    }
-
-    res.status(200).json({
-      status: "success",
-      data: {
-        ...blog,
-        assetUrl,
-      },
-    });
-
   } catch (error) {
     res.status(500).json({
       status: "error",

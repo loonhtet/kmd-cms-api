@@ -45,7 +45,7 @@ app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
 app.use("/api/v1/email", emailRouter);
-app.use("/api/v1/blog", protect, blogRouter);
+app.use("/api/v1/blogs", protect, blogRouter);
 app.use("/api/v1/sidebar", protect, sidebarRouter);
 
 app.use((req, res) => {

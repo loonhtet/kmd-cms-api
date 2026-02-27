@@ -1,39 +1,38 @@
-import { Router } from "express"
+import { Router } from "express";
 import multer from "multer";
-import { createBlog,getAllBlogs,updateBlog,deleteBlog,getSingleBlog} from "../controllers/blog.controller.js";
-import {upload} from "../middleware/uploadMiddleware.js";
-
+import {
+  createBlog,
+  getBlogs,
+  updateBlog,
+  deleteBlog,
+  getSingleBlog,
+} from "../controllers/blog.controller.js";
+import { upload } from "../middleware/uploadMiddleware.js";
+import { blogSchema } from "../schemas/blog.schema.js";
+import validate from "../utils/validate.js";
 
 const router = Router();
 
-// Middleware to handle multer errors for file upload
 const handleUploadErrors = (req, res, next) => {
   upload.single("file")(req, res, (err) => {
     if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({
         status: "error",
-        message: "File too big! Max 5MB."
+        message: "File too big! Max 5MB.",
       });
     }
-    next(err); // pass other errors to Express
+    next(err);
   });
 };
 
+router.get("/", getBlogs);
 
-// Create blog
-router.post("/create-blog", handleUploadErrors, createBlog);
+router.get("/:id", getSingleBlog);
 
-// Update blog with ID in URL
-router.put("/update-blog/:id", handleUploadErrors, updateBlog);
+router.post("/", handleUploadErrors, validate(blogSchema), createBlog);
 
-// Get all blogs with optional pagination/search
-router.get("/get-all-blogs", getAllBlogs);
+router.put("/:id", handleUploadErrors, updateBlog);
 
-// Get single blog by ID
-router.get("/get-single-blog/:id", getSingleBlog);
-
-// Delete blog with ID in URL
-router.delete("/delete-blog/:id", deleteBlog);
-
+router.delete("/:id", deleteBlog);
 
 export default router;
