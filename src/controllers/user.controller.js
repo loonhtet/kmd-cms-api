@@ -188,7 +188,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    const validRoles = ["STUDENT", "TUTOR", "STAFF", "ADMIN_STAFF"];
+    const validRoles = ["STUDENT", "TUTOR", "STAFF", "ADMIN"];
     const normalizedRole = role.toUpperCase();
 
     if (!validRoles.includes(normalizedRole)) {
@@ -229,14 +229,11 @@ const createUser = async (req, res) => {
             userId: user.id,
           },
         });
-      } else if (
-        normalizedRole === "STAFF" ||
-        normalizedRole === "ADMIN_STAFF"
-      ) {
+      } else if (normalizedRole === "STAFF" || normalizedRole === "ADMIN") {
         await tx.staff.create({
           data: {
             userId: user.id,
-            isAdmin: normalizedRole === "ADMIN_STAFF",
+            isAdmin: normalizedRole === "ADMIN",
           },
         });
       }

@@ -18,7 +18,7 @@ async function main() {
       image: null,
       role: {
         create: {
-          role: "ADMIN_STAFF",
+          role: "ADMIN",
         },
       },
       staffProfile: {
