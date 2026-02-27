@@ -25,11 +25,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.12",
-<<<<<<< HEAD
     "resend": "^6.9.2",
-=======
-    "pg": "^8.17.1",
->>>>>>> 809493cd80b3bed55a87873da852ef02b7d87fae
     "zod": "^4.3.5"
   },
   "devDependencies": {

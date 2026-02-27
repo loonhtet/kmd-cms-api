@@ -39,11 +39,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(globalLimiter);
 
 app.use("/api/v1/auth", authRouter);
-app.use("/api/v1/users", protect, userRouter);
+app.use("/api/v1/users", userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
-app.use("/api/v1/allocate", protect, allocateRouter);
+app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
-app.use("/api/v1/email", protect, emailRouter);
+app.use("/api/v1/email", emailRouter);
 app.use("/api/v1/blog", protect, blogRouter);
 
 app.use((req, res) => {

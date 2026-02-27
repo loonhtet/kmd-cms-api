@@ -1,4 +1,5 @@
 import { prisma } from "../config/db.js";
+import { sendEmail } from "../services/email.service.js";
 
 const assignStudentToTutor = async (req, res) => {
   try {
@@ -11,6 +12,7 @@ const assignStudentToTutor = async (req, res) => {
         user: {
           select: {
             name: true,
+            email:true
           },
         },
       },
@@ -106,6 +108,52 @@ const assignStudentToTutor = async (req, res) => {
         },
       },
     });
+
+
+    // =========================
+    // Send emails
+    // =========================
+   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      try {
+        const studentNamesString = updatedStudents
+          .map((s) => s.user.name)
+          .join(", ");
+
+        // Send emails to students sequentially
+        for (const student of updatedStudents) {
+          if (student.user.email) {
+            console.log("Sending email to student:", student.user.email);
+            await sendEmail({
+              to: student.user.email,
+              type: "student-assigned",
+              variables: {
+                studentName: student.user.name,
+                tutorName: tutor.user.name,
+                tutorEmail: tutor.user.email,
+              },
+            });
+            await delay(600); // wait 0.6 second between each email
+          }
+        }
+
+        // Send email to tutor after students
+        if (tutor.user.email) {
+          console.log("Sending email to tutor:", tutor.user.email);
+          await sendEmail({
+            to: tutor.user.email,
+            type: "tutor-assigned",
+            variables: {
+              tutorName: tutor.user.name,
+              studentNames: studentNamesString,
+              studentCount: updatedStudents.length,
+            },
+          });
+        }
+
+      } catch (error) {
+        console.error("Email sending failed:", error.message);
+      }
 
     const studentNames = students.map((s) => s.user.name).join(", ");
     const message =
