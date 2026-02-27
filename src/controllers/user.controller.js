@@ -23,6 +23,7 @@ const getUsers = async (req, res) => {
         image: true,
         createdAt: true,
         updatedAt: true,
+        lastActive: true,
         role: {
           select: {
             role: true,
@@ -103,6 +104,7 @@ const getSingleUser = async (req, res) => {
         image: true,
         createdAt: true,
         updatedAt: true,
+        lastActive: true,
         role: {
           select: {
             role: true,

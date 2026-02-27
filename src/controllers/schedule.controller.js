@@ -215,7 +215,17 @@ const updateSchedule = async (req, res) => {
 
     const scheduleExists = await prisma.schedule.findUnique({
       where: { id },
+      include: {
+        student: { select: { userId: true } },
+        tutor: { select: { userId: true } },
+      },
     });
+
+    console.log("isCompleted raw:", isCompleted);
+    console.log("isCompleted type:", typeof isCompleted);
+    console.log("scheduleExists.isCompleted:", scheduleExists.isCompleted);
+    console.log("student userId:", scheduleExists.student.userId);
+    console.log("tutor userId:", scheduleExists.tutor.userId);
 
     if (!scheduleExists) {
       return res.status(404).json({
@@ -238,9 +248,24 @@ const updateSchedule = async (req, res) => {
       ...(isCompleted !== undefined && { isCompleted }),
     };
 
-    await prisma.schedule.update({
-      where: { id },
-      data: updateData,
+    await prisma.$transaction(async (tx) => {
+      await tx.schedule.update({
+        where: { id },
+        data: updateData,
+      });
+
+      if (isCompleted === true && !scheduleExists.isCompleted) {
+        const scheduleDate = date ? new Date(date) : scheduleExists.date;
+
+        await tx.user.updateMany({
+          where: {
+            id: {
+              in: [scheduleExists.student.userId, scheduleExists.tutor.userId],
+            },
+          },
+          data: { lastActive: scheduleDate },
+        });
+      }
     });
 
     res.status(200).json({
