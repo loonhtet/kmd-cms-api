@@ -11,6 +11,7 @@ import emailRouter from "./routes/email.route.js";
 import blogRouter from "./routes/blog.route.js";
 import rateLimit from "express-rate-limit";
 import scheduleRouter from "./routes/schedule.route.js";
+import sidebarRouter from "./routes/sidebar.route.js";
 
 config();
 connectDB();
@@ -45,6 +46,7 @@ app.use("/api/v1/allocate", protect, allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
 app.use("/api/v1/email", protect, emailRouter);
 app.use("/api/v1/blog", protect, blogRouter);
+app.use("/api/v1/sidebar", protect, sidebarRouter);
 
 app.use((req, res) => {
   res.status(404).json({

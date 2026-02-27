@@ -146,6 +146,17 @@ model Message {
   User_Message_senderIdToUser   User         @relation("Message_senderIdToUser", fields: [senderId], references: [id], onDelete: Cascade)
 }
 
+model Sidebar {
+  id        String   @id @default(uuid())
+  role      RoleType
+  tab       String   @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, tab])
+  @@index([role])
+}
+
 enum RoleType {
   STUDENT
   TUTOR
