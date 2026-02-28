@@ -1,5 +1,4 @@
 import { prisma } from "../config/db.js";
-import paginate from "../utils/pagination.js";
 import {
   uploadToCloudflare,
   deleteFromCloudflare,
@@ -10,9 +9,7 @@ import slugify from "slugify";
 export const getBlogs = async (req, res) => {
   try {
     const { userId, tag, title, cursor, limit = 10 } = req.query;
-
     const take = parseInt(limit);
-
     const whereClause = {
       ...(userId && { userId }),
       ...(title && {
@@ -28,28 +25,31 @@ export const getBlogs = async (req, res) => {
       }),
     };
 
-    const blogs = await prisma.blog.findMany({
-      where: whereClause,
-      take: take + 1,
-      ...(cursor && {
-        cursor: { id: cursor },
-        skip: 1,
-      }),
-      include: {
-        tags: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const [blogs, totalBlogs] = await Promise.all([
+      prisma.blog.findMany({
+        where: whereClause,
+        take: take + 1,
+        ...(cursor && {
+          cursor: { id: cursor },
+          skip: 1,
+        }),
+        include: {
+          tags: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: { comments: true },
           },
         },
-        _count: {
-          select: { comments: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.blog.count({ where: whereClause }),
+    ]);
 
     const hasNextPage = blogs.length > take;
     const data = hasNextPage ? blogs.slice(0, -1) : blogs;
@@ -70,6 +70,7 @@ export const getBlogs = async (req, res) => {
       pagination: {
         nextCursor,
         hasNextPage,
+        totalBlogs,
       },
     });
   } catch (error) {
@@ -79,7 +80,6 @@ export const getBlogs = async (req, res) => {
     });
   }
 };
-
 export const getSingleBlog = async (req, res) => {
   try {
     const { slug } = req.params;
