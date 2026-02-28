@@ -12,6 +12,7 @@ import blogRouter from "./routes/blog.route.js";
 import rateLimit from "express-rate-limit";
 import scheduleRouter from "./routes/schedule.route.js";
 import sidebarRouter from "./routes/sidebar.route.js";
+import tagRouter from "./routes/tag.router.js";
 
 config();
 connectDB();
@@ -46,6 +47,7 @@ app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
 app.use("/api/v1/email", emailRouter);
 app.use("/api/v1/blogs", protect, blogRouter);
+app.use("/api/v1/tags", tagRouter);
 app.use("/api/v1/sidebar", protect, sidebarRouter);
 
 app.use((req, res) => {

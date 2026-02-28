@@ -9,11 +9,18 @@ import slugify from "slugify";
 
 export const getBlogs = async (req, res) => {
   try {
-    const { userId, tag, cursor, limit = 10 } = req.query;
+    const { userId, tag, title, cursor, limit = 10 } = req.query;
+
     const take = parseInt(limit);
 
     const whereClause = {
       ...(userId && { userId }),
+      ...(title && {
+        title: {
+          contains: title,
+          mode: "insensitive",
+        },
+      }),
       ...(tag && {
         tags: {
           some: { title: tag },
@@ -23,10 +30,10 @@ export const getBlogs = async (req, res) => {
 
     const blogs = await prisma.blog.findMany({
       where: whereClause,
-      take: take + 1, // fetch one extra to check if there's a next page
+      take: take + 1,
       ...(cursor && {
         cursor: { id: cursor },
-        skip: 1, // skip the cursor itself
+        skip: 1,
       }),
       include: {
         tags: true,
@@ -36,6 +43,9 @@ export const getBlogs = async (req, res) => {
             name: true,
             email: true,
           },
+        },
+        _count: {
+          select: { comments: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -83,6 +93,9 @@ export const getSingleBlog = async (req, res) => {
             name: true,
             email: true,
           },
+        },
+        _count: {
+          select: { comments: true },
         },
       },
     });
