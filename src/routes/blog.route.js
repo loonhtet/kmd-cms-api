@@ -7,8 +7,15 @@ import {
   deleteBlog,
   getSingleBlog,
 } from "../controllers/blog.controller.js";
+import {
+  getComments,
+  createComment,
+  editComment,
+  deleteComment,
+} from "../controllers/comment.controller.js";
 import { upload } from "../middleware/uploadMiddleware.js";
 import { blogSchema } from "../schemas/blog.schema.js";
+import { commentSchema } from "../schemas/comment.schema.js";
 import validate from "../utils/validate.js";
 
 const router = Router();
@@ -25,14 +32,17 @@ const handleUploadErrors = (req, res, next) => {
   });
 };
 
+// Blog routes
 router.get("/", getBlogs);
-
-router.get("/:id", getSingleBlog);
-
+router.get("/:slug", getSingleBlog);
 router.post("/", handleUploadErrors, validate(blogSchema), createBlog);
-
 router.put("/:id", handleUploadErrors, updateBlog);
-
 router.delete("/:id", deleteBlog);
+
+// Comment routes
+router.get("/:blogId/comments", getComments);
+router.post("/:blogId/comments", validate(commentSchema), createComment);
+router.put("/comments/:id", validate(commentSchema), editComment);
+router.delete("/comments/:id", deleteComment);
 
 export default router;
