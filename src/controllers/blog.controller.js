@@ -128,6 +128,8 @@ export const createBlog = async (req, res) => {
   let uploadedKey = null;
   try {
     const { title, content, tagIds } = req.body;
+    console.log("FILE:", req.file);
+    console.log("BODY:", req.body);
 
     let assetType = null;
     if (req.file) {
@@ -178,11 +180,6 @@ export const createBlog = async (req, res) => {
         ...blog,
         assetUrl,
       },
-    });
-
-    res.status(201).json({
-      status: "success",
-      message: "Blog uploaded successfully",
     });
   } catch (error) {
     if (uploadedKey) {
