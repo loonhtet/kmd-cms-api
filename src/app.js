@@ -29,7 +29,7 @@ const globalLimiter = rateLimit({
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: ["http://localhost:3000"],
     credentials: true,
   }),
 );
@@ -62,7 +62,7 @@ app.use((err, req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
