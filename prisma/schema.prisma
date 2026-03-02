@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                                        String         @id @default(uuid())
+  image                                     String?
+  email                                     String         @unique
+  name                                      String         @db.VarChar(100)
+  password                                  String         @db.VarChar(100)
+  createdAt                                 DateTime       @default(now())
+  updatedAt                                 DateTime       @updatedAt
+  resetOTP                                  String?
+  resetOTPExpiry                            DateTime?
+  lastActive                                DateTime?
+  Conversation_Conversation_studentIdToUser Conversation[] @relation("Conversation_studentIdToUser")
+  Conversation_Conversation_tutorIdToUser   Conversation[] @relation("Conversation_tutorIdToUser")
+  Message_Message_receiverIdToUser          Message[]      @relation("Message_receiverIdToUser")
+  Message_Message_senderIdToUser            Message[]      @relation("Message_senderIdToUser")
+  staffProfile                              Staff?
+  studentProfile                            Student?
+  tutorProfile                              Tutor?
+  role                                      UserRole?
+  blogs                                     Blog[]
+  comments                                  Comment[]
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  role      RoleType
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Student {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  tutorId   String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  schedules Schedule[]
+  tutor     Tutor?     @relation(fields: [tutorId], references: [id])
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId])
+}
+
+model Tutor {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  schedules Schedule[]
+  students  Student[]
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Staff {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Schedule {
+  id          String      @id @default(uuid())
+  studentId   String
+  tutorId     String
+  title       String      @db.VarChar(100)
+  type        MeetingType
+  date        DateTime    @db.Date
+  startTime   DateTime    @db.Time(6)
+  endTime     DateTime    @db.Time(6)
+  link        String?
+  location    String?
+  note        String?
+  isCompleted Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tutor       Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([tutorId])
+}
+
+model Blog {
+  id         String     @id @default(uuid())
+  title      String
+  content    String
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  slug       String?     @unique
+
+  assetKey   String?
+  assetType  AssetType?
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  tags       Tag[]
+  comments  Comment[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  blogId    String
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Tag {
+  id     String  @id @default(uuid())
+  title  String  @unique
+
+  blogs  Blog[]
+}
+
+model Email {
+  id        String   @id @default(uuid())
+  title     String   @db.VarChar(100)
+  markdown  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Conversation {
+  id                                String    @id @default(uuid())
+  studentId                         String
+  tutorId                           String
+  createdAt                         DateTime  @default(now())
+  updatedAt                         DateTime  @updatedAt
+  User_Conversation_studentIdToUser User      @relation("Conversation_studentIdToUser", fields: [studentId], references: [id], onDelete: Cascade)
+  User_Conversation_tutorIdToUser   User      @relation("Conversation_tutorIdToUser", fields: [tutorId], references: [id], onDelete: Cascade)
+  Message                           Message[]
+}
+
+model Message {
+  id                            String       @id @default(uuid())
+  conversationId                String
+  senderId                      String
+  receiverId                    String
+  createdAt                     DateTime     @default(now())
+  updatedAt                     DateTime     @updatedAt
+  content                       String
+  Conversation                  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  User_Message_receiverIdToUser User         @relation("Message_receiverIdToUser", fields: [receiverId], references: [id], onDelete: Cascade)
+  User_Message_senderIdToUser   User         @relation("Message_senderIdToUser", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Sidebar {
+  id        String   @id @default(uuid())
+  role      RoleType
+  tab       String   @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, tab])
+  @@index([role])
+}
+
+enum RoleType {
+  STUDENT
+  TUTOR
+  STAFF
+  ADMIN
+}
+
+enum MeetingType {
+  VIRTUAL
+  IN_PERSON
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+}

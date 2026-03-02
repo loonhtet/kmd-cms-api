@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Welcome</title>
+</head>
+<body style="font-family: Arial, sans-serif; background-color: #f5f5f5; padding: 20px;">
+
+  <div style="max-width: 600px; margin: auto; background: #ffffff; padding: 20px; border-radius: 6px;">
+
+    <h2>Hello {{tutorName}}</h2>
+      <p>You have been assigned the following students:</p>
+      <ul>
+        {{#students}}
+          <li>{{name}}</li>
+        {{/students}}
+      </ul>
+      <p>Click the button to view your dashboard:</p>
+      <a href="{{buttonUrl}}" style="
+        display:inline-block;
+        padding:12px 20px;
+        background:#007bff;
+        color:#fff;
+        text-decoration:none;
+        border-radius:5px;
+      ">
+        {{buttonText}}
+      </a>
+  </div>
+
+</body>
+</html>

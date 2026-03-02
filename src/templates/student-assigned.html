@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      /* General styles for clients that support <style> tags */
+      body {
+        margin: 0;
+        padding: 20px;
+        background-color: #f4f7f9;
+        font-family: Arial, sans-serif;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        background-color: #ffffff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background-color: #2196f3;
+        padding: 15px 25px;
+        color: white;
+        display: flex;
+        align-items: center;
+      }
+      .content {
+        padding: 15px 25px;
+        color: #333333;
+        line-height: 1.6;
+      }
+      .info-row {
+        margin: 15px 0;
+        font-size: 15px;
+      }
+      .bullet {
+        color: #666;
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <span style="font-size: 24px; margin-right: 15px">
+          <img
+            src="https://pub-650254544ec747889d03da02b42a49d7.r2.dev/mail.png"
+            alt="Email icon"
+            width="24"
+            height="24"
+            style="vertical-align: middle; display: inline-block"
+          />
+        </span>
+        <span style="font-size: 18px; font-weight: bold"
+          >Personal Tutor Allocation Confirmation</span
+        >
+      </div>
+
+      <div class="content">
+        <h2 style="margin-top: 0; font-size: 20px">Dear {{studentName}}</h2>
+
+        <p>
+          We are pleased to inform you that a personal tutor has been
+          successfully allocated to you
+        </p>
+
+        <div class="info-row">
+          <span class="bullet">•</span>
+          <strong>Allocated Tutor:</strong> {{tutorName}}
+        </div>
+
+        <div class="info-row">
+          <span class="bullet">•</span>
+          <strong>Tutor Email:</strong>
+          <a
+            href="mailto:{{tutorEmail}}"
+            style="color: #2196f3; text-decoration: none"
+          >
+            {{tutorEmail}}
+          </a>
+        </div>
+
+        <p style="margin-top: 30px">
+          Please contact your tutor to schedule your first meeting
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
