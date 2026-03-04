@@ -1,6 +1,5 @@
 import cron from "node-cron";
 import { prisma } from "../config/db.js";
-import { sendEmail } from "../utils/email.js";
 
 const INACTIVE_DAYS = 2;
 const EMAIL_COOLDOWN_DAYS = 1; // weekly, so don't resend within 7 days
