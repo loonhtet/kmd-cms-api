@@ -5,7 +5,6 @@ import paginate from "../utils/pagination.js";
 const getUsers = async (req, res) => {
   try {
     const { role, search } = req.query;
-
     const whereClause = {
       ...(role && {
         role: {
@@ -19,7 +18,6 @@ const getUsers = async (req, res) => {
         ],
       }),
     };
-
     const result = await paginate(prisma.user, req, {
       where: whereClause,
       select: {
@@ -35,6 +33,36 @@ const getUsers = async (req, res) => {
             role: true,
           },
         },
+        studentProfile: {
+          select: {
+            id: true,
+            tutorId: true,
+            tutor: {
+              select: {
+                id: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    image: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        tutorProfile: {
+          select: {
+            id: true,
+          },
+        },
+        staffProfile: {
+          select: {
+            id: true,
+            isAdmin: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -44,6 +72,20 @@ const getUsers = async (req, res) => {
     const transformedData = result.data.map((user) => ({
       ...user,
       role: user.role?.role || null,
+      studentProfile: user.studentProfile
+        ? {
+            id: user.studentProfile.id,
+            tutorId: user.studentProfile.tutorId,
+            tutor: user.studentProfile.tutor
+              ? {
+                  id: user.studentProfile.tutor.id,
+                  ...user.studentProfile.tutor.user,
+                }
+              : null,
+          }
+        : null,
+      tutorProfile: user.tutorProfile ?? null,
+      staffProfile: user.staffProfile ?? null,
     }));
 
     res.status(200).json({
@@ -78,6 +120,7 @@ const getUserLookup = async (req, res) => {
       select: {
         id: true,
         name: true,
+        email: true,
       },
       orderBy: {
         name: "asc",

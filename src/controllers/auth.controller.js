@@ -135,26 +135,58 @@ const verifyOTP = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
-    const user = await prisma.user.findFirst({
-      where: {
-        email: email,
-        resetOTP: otp,
-        resetOTPExpiry: { gte: new Date() },
-      },
-    });
-    if (!user) {
-      return res.status(400).json({ message: "Something went wrong" });
+
+    let user;
+
+    if (otp) {
+      // OTP version
+      user = await prisma.user.findFirst({
+        where: {
+          email: email,
+          resetOTP: otp,
+          resetOTPExpiry: { gte: new Date() },
+        },
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          status: "error",
+          message: "Invalid or expired OTP",
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          resetOTP: null,
+          resetOTPExpiry: null,
+        },
+      });
+    } else {
+      // Without OTP version
+      user = await prisma.user.findFirst({
+        where: { email },
+      });
+
+      if (!user) {
+        return res.status(400).json({
+          status: "error",
+          message: "User not found",
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+        },
+      });
     }
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        resetOTP: null,
-        resetOTPExpiry: null,
-      },
-    });
-    res.status(201).json({
+
+    res.status(200).json({
       status: "success",
       message: "Password has been reset successfully",
     });
