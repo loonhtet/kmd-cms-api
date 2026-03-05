@@ -24,7 +24,6 @@ const getUsers = async (req, res) => {
         id: true,
         email: true,
         name: true,
-        image: true,
         createdAt: true,
         updatedAt: true,
         lastActive: true,
@@ -45,7 +44,6 @@ const getUsers = async (req, res) => {
                     id: true,
                     name: true,
                     email: true,
-                    image: true,
                   },
                 },
               },
@@ -151,7 +149,6 @@ const getSingleUser = async (req, res) => {
         id: true,
         email: true,
         name: true,
-        image: true,
         createdAt: true,
         updatedAt: true,
         lastActive: true,
@@ -227,7 +224,7 @@ const getSingleUser = async (req, res) => {
 
 const createUser = async (req, res) => {
   try {
-    const { image, email, name, password, role } = req.body;
+    const { email, name, password, role } = req.body;
 
     const userExists = await prisma.user.findUnique({
       where: { email },
@@ -258,7 +255,6 @@ const createUser = async (req, res) => {
           email,
           name,
           password: hashedPassword,
-          image: image || null,
         },
       });
 
@@ -309,7 +305,7 @@ const createUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { image, email, name } = req.body;
+    const { email, name } = req.body;
 
     const userExists = await prisma.user.findUnique({
       where: { id },
@@ -337,7 +333,6 @@ const updateUser = async (req, res) => {
     const updateData = {
       ...(email && { email }),
       ...(name && { name }),
-      ...(image !== undefined && { image: image || null }),
     };
 
     await prisma.user.update({
@@ -347,7 +342,6 @@ const updateUser = async (req, res) => {
         id: true,
         email: true,
         name: true,
-        image: true,
         createdAt: true,
         updatedAt: true,
         role: {
