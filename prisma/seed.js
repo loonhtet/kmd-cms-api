@@ -15,7 +15,6 @@ async function main() {
       email: "admin@example.com",
       name: "Admin Staff",
       password: hashedPassword,
-      image: null,
       role: {
         create: {
           role: "ADMIN",
@@ -38,7 +37,6 @@ async function main() {
       email: "staff@example.com",
       name: "Regular Staff",
       password: hashedPassword,
-      image: null,
       role: {
         create: {
           role: "STAFF",
@@ -61,7 +59,6 @@ async function main() {
       email: "tutor@example.com",
       name: "John Tutor",
       password: hashedPassword,
-      image: null,
       role: {
         create: {
           role: "TUTOR",
@@ -82,7 +79,6 @@ async function main() {
       email: "student@example.com",
       name: "Jane Student",
       password: hashedPassword,
-      image: null,
       role: {
         create: {
           role: "STUDENT",
@@ -103,7 +99,6 @@ async function main() {
       email: "tutor2@example.com",
       name: "Sarah Tutor",
       password: hashedPassword,
-      image: null,
       role: {
         create: {
           role: "TUTOR",
@@ -124,7 +119,6 @@ async function main() {
       email: "student2@example.com",
       name: "Mike Student",
       password: hashedPassword,
-      image: null,
       role: {
         create: {
           role: "STUDENT",
@@ -146,7 +140,6 @@ async function main() {
       email: "student3@example.com",
       name: "Emily Student",
       password: hashedPassword,
-      image: null,
       role: {
         create: {
           role: "STUDENT",
