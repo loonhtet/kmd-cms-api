@@ -4,7 +4,8 @@ import paginate from "../utils/pagination.js";
 
 const getUsers = async (req, res) => {
   try {
-    const { role, search } = req.query;
+    const { role, search, assigned } = req.query;
+
     const whereClause = {
       ...(role && {
         role: {
@@ -17,55 +18,64 @@ const getUsers = async (req, res) => {
           { email: { contains: search, mode: "insensitive" } },
         ],
       }),
-    };
-    const result = await paginate(prisma.user, req, {
-      where: whereClause,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        lastActive: true,
-        role: {
-          select: {
-            role: true,
-          },
-        },
+      ...(assigned === "true" && {
         studentProfile: {
-          select: {
-            id: true,
-            tutorId: true,
-            tutor: {
-              select: {
-                id: true,
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
+          tutorId: { not: null },
+        },
+      }),
+      ...(assigned === "false" && {
+        studentProfile: {
+          tutorId: null,
+        },
+      }),
+    };
+
+    const [
+      result,
+      totalStudents,
+      totalTutors,
+      totalStaff,
+      totalAdmins,
+      totalAssigned,
+      totalUnassigned,
+    ] = await Promise.all([
+      paginate(prisma.user, req, {
+        where: whereClause,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          lastActive: true,
+          role: { select: { role: true } },
+          studentProfile: {
+            select: {
+              id: true,
+              tutorId: true,
+              tutor: {
+                select: {
+                  id: true,
+                  user: {
+                    select: { id: true, name: true, email: true },
                   },
                 },
               },
             },
           },
+          tutorProfile: { select: { id: true } },
+          staffProfile: { select: { id: true, isAdmin: true } },
         },
-        tutorProfile: {
-          select: {
-            id: true,
-          },
-        },
-        staffProfile: {
-          select: {
-            id: true,
-            isAdmin: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+
+      prisma.student.count(),
+      prisma.tutor.count(),
+      prisma.staff.count({ where: { isAdmin: false } }),
+      prisma.staff.count({ where: { isAdmin: true } }),
+      prisma.student.count({ where: { tutorId: { not: null } } }),
+      prisma.student.count({ where: { tutorId: null } }),
+    ]);
 
     const transformedData = result.data.map((user) => ({
       ...user,
@@ -89,8 +99,15 @@ const getUsers = async (req, res) => {
     res.status(200).json({
       status: "success",
       data: transformedData,
-      meta: result.meta,
       pagination: result.pagination,
+      counts: {
+        totalStudents,
+        totalTutors,
+        totalStaff,
+        totalAdmins,
+        totalAssigned,
+        totalUnassigned,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -226,17 +243,6 @@ const createUser = async (req, res) => {
   try {
     const { email, name, password, role } = req.body;
 
-    const userExists = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (userExists) {
-      return res.status(400).json({
-        status: "error",
-        message: "User already exists",
-      });
-    }
-
     const validRoles = ["STUDENT", "TUTOR", "STAFF", "ADMIN"];
     const normalizedRole = role.toUpperCase();
 
@@ -247,43 +253,39 @@ const createUser = async (req, res) => {
       });
     }
 
+    // No one can create an admin account
+    if (normalizedRole === "ADMIN") {
+      return res.status(403).json({
+        status: "error",
+        message: "Creating an Admin account is not allowed",
+      });
+    }
+
+    const userExists = await prisma.user.findUnique({ where: { email } });
+    if (userExists) {
+      return res.status(400).json({
+        status: "error",
+        message: "User already exists",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: {
-          email,
-          name,
-          password: hashedPassword,
-        },
+        data: { email, name, password: hashedPassword },
       });
 
       await tx.userRole.create({
-        data: {
-          userId: user.id,
-          role: normalizedRole,
-        },
+        data: { userId: user.id, role: normalizedRole },
       });
 
       if (normalizedRole === "STUDENT") {
-        await tx.student.create({
-          data: {
-            userId: user.id,
-          },
-        });
+        await tx.student.create({ data: { userId: user.id } });
       } else if (normalizedRole === "TUTOR") {
-        await tx.tutor.create({
-          data: {
-            userId: user.id,
-          },
-        });
-      } else if (normalizedRole === "STAFF" || normalizedRole === "ADMIN") {
-        await tx.staff.create({
-          data: {
-            userId: user.id,
-            isAdmin: normalizedRole === "ADMIN",
-          },
-        });
+        await tx.tutor.create({ data: { userId: user.id } });
+      } else if (normalizedRole === "STAFF") {
+        await tx.staff.create({ data: { userId: user.id, isAdmin: false } });
       }
 
       return user;
@@ -307,21 +309,27 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const { email, name } = req.body;
 
-    const userExists = await prisma.user.findUnique({
-      where: { id },
+    const targetUser = await prisma.userRole.findUnique({
+      where: { userId: id },
     });
 
-    if (!userExists) {
+    if (!targetUser) {
       return res.status(404).json({
         status: "error",
         message: "User not found",
       });
     }
 
-    if (email && email !== userExists.email) {
-      const emailTaken = await prisma.user.findUnique({
-        where: { email },
+    // Only admin can update an admin account
+    if (targetUser.role === "ADMIN" && req.userRole !== "ADMIN") {
+      return res.status(403).json({
+        status: "error",
+        message: "Only Admins can update an Admin account",
       });
+    }
+
+    if (email && email !== targetUser.email) {
+      const emailTaken = await prisma.user.findUnique({ where: { email } });
       if (emailTaken) {
         return res.status(400).json({
           status: "error",
@@ -338,18 +346,6 @@ const updateUser = async (req, res) => {
     await prisma.user.update({
       where: { id },
       data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        role: {
-          select: {
-            role: true,
-          },
-        },
-      },
     });
 
     res.status(200).json({
@@ -369,20 +365,26 @@ const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const userExists = await prisma.user.findUnique({
-      where: { id },
+    const targetUser = await prisma.userRole.findUnique({
+      where: { userId: id },
     });
 
-    if (!userExists) {
+    if (!targetUser) {
       return res.status(404).json({
         status: "error",
         message: "User not found",
       });
     }
 
-    await prisma.user.delete({
-      where: { id },
-    });
+    // Staff cannot delete admin accounts
+    if (targetUser.role === "ADMIN" && req.userRole !== "ADMIN") {
+      return res.status(403).json({
+        status: "error",
+        message: "Staff cannot delete an Admin account",
+      });
+    }
+
+    await prisma.user.delete({ where: { id } });
 
     res.status(200).json({
       status: "success",
@@ -397,141 +399,6 @@ const deleteUser = async (req, res) => {
   }
 };
 
-const assignStudentToTutor = async (req, res) => {
-  try {
-    const { studentId, tutorId } = req.body;
-
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    });
-
-    if (!student) {
-      return res.status(404).json({
-        status: "error",
-        message: "Student not found",
-      });
-    }
-
-    const tutor = await prisma.tutor.findUnique({
-      where: { id: tutorId },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    });
-
-    if (!tutor) {
-      return res.status(404).json({
-        status: "error",
-        message: "Tutor not found",
-      });
-    }
-
-    const updatedStudent = await prisma.student.update({
-      where: { id: studentId },
-      data: {
-        tutorId: tutorId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        tutor: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: `Student ${student.user.name} assigned to tutor ${tutor.user.name}`,
-      data: {
-        studentId: updatedStudent.id,
-        studentName: updatedStudent.user.name,
-        tutorId: updatedStudent.tutor.id,
-        tutorName: updatedStudent.tutor.user.name,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Failed to assign student to tutor",
-      error: error.message,
-    });
-  }
-};
-
-const unassignStudentFromTutor = async (req, res) => {
-  try {
-    const { studentId } = req.body;
-
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      include: {
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    });
-
-    if (!student) {
-      return res.status(404).json({
-        status: "error",
-        message: "Student not found",
-      });
-    }
-
-    if (!student.tutorId) {
-      return res.status(400).json({
-        status: "error",
-        message: "Student is not assigned to any tutor",
-      });
-    }
-
-    await prisma.student.update({
-      where: { id: studentId },
-      data: {
-        tutorId: null,
-      },
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: `Student ${student.user.name} unassigned from tutor`,
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Failed to unassign student from tutor",
-      error: error.message,
-    });
-  }
-};
-
 export {
   getUsers,
   getUserLookup,
@@ -539,6 +406,4 @@ export {
   createUser,
   updateUser,
   deleteUser,
-  assignStudentToTutor,
-  unassignStudentFromTutor,
 };

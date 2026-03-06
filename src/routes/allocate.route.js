@@ -11,18 +11,21 @@ import {
   getTutorWithStudents,
   getStudentWithTutor,
 } from "../controllers/allocate.controller.js";
+import { requireStaffOrAdmin } from "../middleware/permissionMiddleware.js";
 
 const allocateRouter = Router();
 
 allocateRouter.post(
   "/assign-student",
   validate(assignStudentSchema),
+  requireStaffOrAdmin,
   assignStudentToTutor,
 );
 
 allocateRouter.post(
   "/unassign-tutor",
   validate(unassignStudentSchema),
+  requireStaffOrAdmin,
   unassignStudentFromTutor,
 );
 
