@@ -4,7 +4,8 @@ import paginate from "../utils/pagination.js";
 
 const getUsers = async (req, res) => {
   try {
-    const { role, search } = req.query;
+    const { role, search, assigned } = req.query;
+
     const whereClause = {
       ...(role && {
         role: {
@@ -17,55 +18,64 @@ const getUsers = async (req, res) => {
           { email: { contains: search, mode: "insensitive" } },
         ],
       }),
-    };
-    const result = await paginate(prisma.user, req, {
-      where: whereClause,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true,
-        lastActive: true,
-        role: {
-          select: {
-            role: true,
-          },
-        },
+      ...(assigned === "true" && {
         studentProfile: {
-          select: {
-            id: true,
-            tutorId: true,
-            tutor: {
-              select: {
-                id: true,
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    email: true,
+          tutorId: { not: null },
+        },
+      }),
+      ...(assigned === "false" && {
+        studentProfile: {
+          tutorId: null,
+        },
+      }),
+    };
+
+    const [
+      result,
+      totalStudents,
+      totalTutors,
+      totalStaff,
+      totalAdmins,
+      totalAssigned,
+      totalUnassigned,
+    ] = await Promise.all([
+      paginate(prisma.user, req, {
+        where: whereClause,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+          lastActive: true,
+          role: { select: { role: true } },
+          studentProfile: {
+            select: {
+              id: true,
+              tutorId: true,
+              tutor: {
+                select: {
+                  id: true,
+                  user: {
+                    select: { id: true, name: true, email: true },
                   },
                 },
               },
             },
           },
+          tutorProfile: { select: { id: true } },
+          staffProfile: { select: { id: true, isAdmin: true } },
         },
-        tutorProfile: {
-          select: {
-            id: true,
-          },
-        },
-        staffProfile: {
-          select: {
-            id: true,
-            isAdmin: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+
+      prisma.student.count(),
+      prisma.tutor.count(),
+      prisma.staff.count({ where: { isAdmin: false } }),
+      prisma.staff.count({ where: { isAdmin: true } }),
+      prisma.student.count({ where: { tutorId: { not: null } } }),
+      prisma.student.count({ where: { tutorId: null } }),
+    ]);
 
     const transformedData = result.data.map((user) => ({
       ...user,
@@ -89,8 +99,15 @@ const getUsers = async (req, res) => {
     res.status(200).json({
       status: "success",
       data: transformedData,
-      meta: result.meta,
       pagination: result.pagination,
+      counts: {
+        totalStudents,
+        totalTutors,
+        totalStaff,
+        totalAdmins,
+        totalAssigned,
+        totalUnassigned,
+      },
     });
   } catch (error) {
     res.status(500).json({
