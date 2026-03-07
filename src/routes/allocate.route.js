@@ -11,6 +11,7 @@ import {
   getTutorWithStudents,
   getStudentWithTutor,
 } from "../controllers/allocate.controller.js";
+import { requireStaffOrAdmin } from "../middleware/permissionMiddleware.js";
 
 const allocateRouter = Router();
 

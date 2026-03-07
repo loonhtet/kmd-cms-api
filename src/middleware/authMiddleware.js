@@ -4,7 +4,6 @@ import { prisma } from "../config/db.js";
 const protect = async (req, res, next) => {
   try {
     let token;
-
     if (req.cookies?.jwtToken) {
       token = req.cookies.jwtToken;
     } else if (req.headers.authorization?.startsWith("Bearer")) {
@@ -22,7 +21,16 @@ const protect = async (req, res, next) => {
 
     req.user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      select: { id: true, email: true },
+      select: {
+        id: true,
+        email: true,
+        role: {
+          // ✅ fetch role here directly
+          select: {
+            role: true,
+          },
+        },
+      },
     });
 
     if (!req.user) {
@@ -31,6 +39,8 @@ const protect = async (req, res, next) => {
         message: "Not authorized",
       });
     }
+
+    req.userRole = req.user.role?.role || null; // ✅ attach role directly
 
     next();
   } catch (error) {

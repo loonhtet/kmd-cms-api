@@ -1,46 +1,45 @@
 import { prisma } from "../config/db.js";
+import { UAParser } from "ua-parser-js";
+
 
 export const getActivities = async (req, res) => {
   try {
-    const { blogId } = req.params;
-    const { cursor, limit = 10 } = req.query;
-    const take = parseInt(limit);
-
-    const comments = await prisma.comment.findMany({
-      where: { blogId },
-      take: take + 1,
-      ...(cursor && {
-        cursor: { id: cursor },
-        skip: 1,
-      }),
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
+    const result = await prisma.userActivity.groupBy({
+      by: ['page', 'browser'],
+      _count: {
+        id: true
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: {
+        _count: {
+          id: 'desc'
+        }
+      }
     });
+    const summary = result.map(r => ({
+      page: r.page,
+      browser: r.browser,
+      activity_count: r._count.id
+    }));``
 
-    const hasNextPage = comments.length > take;
-    const data = hasNextPage ? comments.slice(0, -1) : comments;
-    const nextCursor = hasNextPage ? data[data.length - 1].id : null;
+    const totalActivities = await prisma.userActivity.count();
+    const  uniquePages = await prisma.userActivity.groupBy({
+      by: ['page'],
+    });
+    const uniquePageCount = uniquePages.length; 
+    const uniqueBrowsers = await prisma.userActivity.groupBy({
+      by: ['browser'],
+    });
+    const uniqueBrowserCount = uniqueBrowsers.length; 
 
     res.status(200).json({
       status: "success",
-      data,
-      pagination: {
-        nextCursor,
-        hasNextPage,
-      },
+      data: {summary, totalActivities, uniquePageCount, uniqueBrowserCount},
     });
   } catch (error) {
     res.status(500).json({
       status: "error",
-      message: error.message,
+      message: "Failed to fetch Messages",
+      error: error.message,
     });
   }
 };
@@ -48,22 +47,19 @@ export const getActivities = async (req, res) => {
 export const createActivity = async (req, res) => {
   try {
     const userId = req.user.id;
-    const {  page, browser } = req.body;
+    const { page } = req.body;
+    const ua = req.headers["user-agent"];
+    const parser = new UAParser(ua);
+    const result = parser.getResult();
+
+    const browser = result.browser.name ? result.browser.name : "Unknown Browser";
+
 
     const created = await prisma.userActivity.create({
       data: {
         userId,
         page,
         browser,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
       },
     });
 

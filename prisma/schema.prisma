@@ -8,7 +8,6 @@ datasource db {
 
 model User {
   id                                        String         @id @default(uuid())
-  image                                     String?
   email                                     String         @unique
   name                                      String         @db.VarChar(100)
   password                                  String         @db.VarChar(100)
@@ -17,6 +16,7 @@ model User {
   resetOTP                                  String?
   resetOTPExpiry                            DateTime?
   lastActive                                DateTime?
+  lastInactiveEmailSent                     DateTime?
   Conversation_Conversation_studentIdToUser Conversation[] @relation("Conversation_studentIdToUser")
   Conversation_Conversation_tutorIdToUser   Conversation[] @relation("Conversation_tutorIdToUser")
   Message_Message_receiverIdToUser          Message[]      @relation("Message_receiverIdToUser")
