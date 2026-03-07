@@ -27,6 +27,7 @@ model User {
   role                                      UserRole?
   blogs                                     Blog[]
   comments                                  Comment[]
+  userActivities                           UserActivity[]
 }
 
 model UserRole {
@@ -187,4 +188,13 @@ enum MeetingType {
 enum AssetType {
   IMAGE
   VIDEO
+}
+
+model UserActivity {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  page      String
+  browser   String
+  createdAt DateTime @default(now())
+  user      User  @relation(fields: [userId], references: [id])
 }
