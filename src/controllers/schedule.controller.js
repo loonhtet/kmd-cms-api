@@ -229,12 +229,6 @@ const updateSchedule = async (req, res) => {
       },
     });
 
-    console.log("isCompleted raw:", isCompleted);
-    console.log("isCompleted type:", typeof isCompleted);
-    console.log("scheduleExists.isCompleted:", scheduleExists.isCompleted);
-    console.log("student userId:", scheduleExists.student.userId);
-    console.log("tutor userId:", scheduleExists.tutor.userId);
-
     if (!scheduleExists) {
       return res.status(404).json({
         status: "error",

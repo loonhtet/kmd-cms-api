@@ -9,19 +9,20 @@ import {
 } from "../controllers/user.controller.js";
 import { userSchema } from "../schemas/user.schema.js";
 import validate from "../utils/validate.js";
+import { requireStaffOrAdmin } from "../middleware/permissionMiddleware.js";
 
 const userRouter = Router();
 
 userRouter.get("/", getUsers);
 
-userRouter.get("/:id", getSingleUser);
-
 userRouter.get("/lookup", getUserLookup);
 
-userRouter.post("/", validate(userSchema), createUser);
+userRouter.get("/:id", getSingleUser);
 
-userRouter.put("/:id", updateUser);
+userRouter.post("/", validate(userSchema), requireStaffOrAdmin, createUser);
 
-userRouter.delete("/:id", deleteUser);
+userRouter.put("/:id", requireStaffOrAdmin, updateUser);
+
+userRouter.delete("/:id", requireStaffOrAdmin, deleteUser);
 
 export default userRouter;
