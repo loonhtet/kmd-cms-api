@@ -18,14 +18,12 @@ const allocateRouter = Router();
 allocateRouter.post(
   "/assign-student",
   validate(assignStudentSchema),
-  requireStaffOrAdmin,
   assignStudentToTutor,
 );
 
 allocateRouter.post(
   "/unassign-tutor",
   validate(unassignStudentSchema),
-  requireStaffOrAdmin,
   unassignStudentFromTutor,
 );
 
