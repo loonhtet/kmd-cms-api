@@ -25,7 +25,6 @@ const protect = async (req, res, next) => {
         id: true,
         email: true,
         role: {
-          // ✅ fetch role here directly
           select: {
             role: true,
           },
@@ -40,7 +39,7 @@ const protect = async (req, res, next) => {
       });
     }
 
-    req.userRole = req.user.role?.role || null; // ✅ attach role directly
+    req.userRole = req.user.role?.role || null;
 
     next();
   } catch (error) {
