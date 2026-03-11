@@ -98,6 +98,12 @@ export const sendEmail = async ({ to, type, variables }) => {
   }else if (type === "reset-password") {
     subject = "Reset Password";
     template = "reset-password.html";
+  } else if (type === "inactive-warning-to-tutor") {
+    subject = "Student Inactivity Alert";
+    template = "student-inactive-to-tutor.html";
+  } else if (type === "inactive-warning") {
+    subject = "Student Inactivity Alert";
+    template = "student-inactive.html";
   } else {
     throw new Error("Invalid email type");
   }
