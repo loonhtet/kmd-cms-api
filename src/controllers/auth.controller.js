@@ -184,6 +184,15 @@ const resetPassword = async (req, res) => {
           password: hashedPassword,
         },
       });
+
+      await sendEmail({
+        to: email,
+        type: "reset-password",
+        variables: {
+          password: newPassword,
+          studentName: user.name,
+        },
+      });
     }
 
     res.status(200).json({

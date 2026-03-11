@@ -95,6 +95,9 @@ export const sendEmail = async ({ to, type, variables }) => {
   } else if (type === "otp") {
     subject = "Your OTP Code";
     template = "otp.html";
+  }else if (type === "reset-password") {
+    subject = "Reset Password";
+    template = "reset-password.html";
   } else {
     throw new Error("Invalid email type");
   }
