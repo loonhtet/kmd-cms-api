@@ -1,10 +1,14 @@
-import z from "zod/v3";
+// schemas/document.schema.js
+import { z } from "zod";
 
-const documentSchema = z.object({
-  title: z
-    .string({ required_error: "Title is required" })
-    .min(1, "Title cannot be empty")
-    .max(100, "Title must not exceed 100 characters"),
+export const documentSchema = z.object({
+  studentId: z.string().uuid(),
+  tutorId: z.string().uuid(),
+  title: z.string().min(1).max(100),
+  file: z.string().min(1),
 });
 
-export { documentSchema };
+export const updateDocumentSchema = z.object({
+  title: z.string().min(1).max(100).optional(),
+  file: z.string().min(1).optional(),
+});
