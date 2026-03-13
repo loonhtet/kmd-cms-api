@@ -19,6 +19,7 @@ import sidebarRouter from "./routes/sidebar.route.js";
 import tagRouter from "./routes/tag.router.js";
 import userJob from "./jobs/user.job.js";
 import userActivityRouter from "./routes/userActivity.route.js";
+import cronRouter from "./routes/corn.route.js";
 
 config();
 connectDB();
@@ -62,14 +63,14 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/conversation", protect, conversationRouter);
-// app.use("/api/v1/email", emailRouter);
+app.use("/api/v1/cron", cronRouter);
 app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
 app.use("/api/v1/email", emailRouter);
 app.use("/api/v1/blogs", blogRouter);
 app.use("/api/v1/tags", tagRouter);
 app.use("/api/v1/sidebar", protect, sidebarRouter);
-app.use("/api/v1/user-activity",protect, userActivityRouter);
+app.use("/api/v1/user-activity", protect, userActivityRouter);
 
 app.use((req, res) => {
   res.status(404).json({
