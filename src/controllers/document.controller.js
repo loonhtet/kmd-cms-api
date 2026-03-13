@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 
 // GET /documents - Get all documents for a student or tutor
-export const getDocuments = async (req: Request, res: Response) => {
+export const getDocuments = async (req, res) => {
   try {
     const { studentId, tutorId } = req.query;
 
@@ -38,7 +38,7 @@ export const getDocuments = async (req: Request, res: Response) => {
 };
 
 // GET /documents/:id - Get a single document by ID
-export const getDocument = async (req: Request, res: Response) => {
+export const getDocument = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -74,7 +74,7 @@ export const getDocument = async (req: Request, res: Response) => {
 };
 
 // POST /documents - Upload a new document
-export const createDocument = async (req: Request, res: Response) => {
+export const createDocument = async (req, res) => {
   try {
     const { studentId, tutorId, title, file } = req.body;
 
@@ -120,7 +120,7 @@ export const createDocument = async (req: Request, res: Response) => {
 };
 
 // PUT /documents/:id - Update a document title or file
-export const updateDocument = async (req: Request, res: Response) => {
+export const updateDocument = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, file } = req.body;
@@ -129,8 +129,7 @@ export const updateDocument = async (req: Request, res: Response) => {
     if (!existing) {
       return res.status(404).json({ message: "Document not found" });
     }
-
-    const document = await prisma.document.update({
+const document = await prisma.document.update({
       where: { id },
       data: {
         ...(title && { title }),
@@ -162,7 +161,7 @@ export const updateDocument = async (req: Request, res: Response) => {
 };
 
 // DELETE /documents/:id - Delete a document
-export const deleteDocument = async (req: Request, res: Response) => {
+export const deleteDocument = async (req, res) => {
   try {
     const { id } = req.params;
 

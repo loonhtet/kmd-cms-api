@@ -11,4 +11,4 @@ export const documentSchema = z.object({
 export const updateDocumentSchema = z.object({
   title: z.string().min(1).max(100).optional(),
   file: z.string().min(1).optional(),
-});
+});                
