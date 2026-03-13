@@ -16,6 +16,7 @@ import emailRouter from "./routes/email.route.js";
 import blogRouter from "./routes/blog.route.js";
 import rateLimit from "express-rate-limit";
 import scheduleRouter from "./routes/schedule.route.js";
+import documentRouter from "./routes/document.route.js"; // for document routes
 import sidebarRouter from "./routes/sidebar.route.js";
 import tagRouter from "./routes/tag.router.js";
 
@@ -60,20 +61,13 @@ app.use(globalLimiter);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
-app.use("/api/v1/conversation", protect, conversationRouter );
-// app.use("/api/v1/email", emailRouter);
+app.use("/api/v1/conversation", protect, conversationRouter);
 app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
-<<<<<<< HEAD
 app.use("/api/v1/documents", protect, documentRouter);
-app.use("/api/v1/email", protect, emailRouter);
-app.use("/api/v1/blog", protect, blogRouter);
-=======
-app.use("/api/v1/email", emailRouter);
 app.use("/api/v1/blogs", blogRouter);
 app.use("/api/v1/tags", tagRouter);
 app.use("/api/v1/sidebar", protect, sidebarRouter);
->>>>>>> 4add9e3c76f9eb066b5a22ce980e896a9a40891a
 
 app.use((req, res) => {
   res.status(404).json({
@@ -82,7 +76,7 @@ app.use((req, res) => {
   });
 });
 
-app.use((err, req, res) => {
+app.use((err, req, res, next) => {
   res.status(err.status || 500).json({
     success: false,
     message: err.message || "Internal server error",
