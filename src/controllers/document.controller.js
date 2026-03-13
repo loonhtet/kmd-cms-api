@@ -1,171 +1,181 @@
-import { prisma } from "../config/db.js";
-import { r2Client, R2_BUCKET_NAME } from "../config/r2.js";
-import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { v4 as uuidv4 } from "uuid";
-import paginate from "../utils/pagination.js";
+import { Request, Response } from "express";
+import { prisma } from "../lib/prisma";
 
-const uploadDocument = async (req, res) => {
+// GET /documents - Get all documents for a student or tutor
+export const getDocuments = async (req: Request, res: Response) => {
   try {
-    const { title } = req.body;
-    const file = req.file;
+    const { studentId, tutorId } = req.query;
 
-    if (!file) {
-      return res.status(400).json({ status: "error", message: "No file uploaded" });
-    }
-
-    const userId = req.user.id;
-    const student = await prisma.student.findFirst({ where: { userId } });
-    const tutor = await prisma.tutor.findFirst({ where: { userId } });
-
-    if (!student && !tutor) {
-      return res.status(403).json({ status: "error", message: "Only students or tutors can upload documents" });
-    }
-
-    const fileExt = file.originalname.split(".").pop();
-    const fileKey = `documents/${uuidv4()}.${fileExt}`;
-
-    await r2Client.send(
-      new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
-        Key: fileKey,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      })
-    );
-
-    const document = await prisma.document.create({
-      data: {
-        title,
-        fileName: file.originalname,
-        fileKey,
-        fileType: file.mimetype,
-        fileSize: file.size,
-        uploadedByStudentId: student ? student.id : null,
-        uploadedByTutorId: tutor ? tutor.id : null,
-        studentId: student ? student.id : null,
-        tutorId: tutor ? tutor.id : (student?.tutorId ?? null),
+    const documents = await prisma.document.findMany({
+      where: {
+        ...(studentId && { studentId: String(studentId) }),
+        ...(tutorId && { tutorId: String(tutorId) }),
       },
-    });
-
-    res.status(201).json({
-      status: "success",
-      message: "Document uploaded successfully",
-      data: { id: document.id, title: document.title, fileName: document.fileName },
-    });
-  } catch (error) {
-    res.status(500).json({ status: "error", message: "Failed to upload document", error: error.message });
-  }
-};
-
-const getDocuments = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const student = await prisma.student.findFirst({ where: { userId } });
-    const tutor = await prisma.tutor.findFirst({ where: { userId } });
-
-    if (!student && !tutor) {
-      return res.status(403).json({ status: "error", message: "Access denied" });
-    }
-
-    const whereClause = student ? { studentId: student.id } : { tutorId: tutor.id };
-
-    const { search } = req.query;
-    if (search) {
-      whereClause.title = { contains: search, mode: "insensitive" };
-    }
-
-    const result = await paginate(prisma.document, req, {
-      where: whereClause,
-      select: {
-        id: true,
-        title: true,
-        fileName: true,
-        fileType: true,
-        fileSize: true,
-        createdAt: true,
-        uploadedByStudent: {
-          select: { id: true, user: { select: { name: true } } },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
         },
-        uploadedByTutor: {
-          select: { id: true, user: { select: { name: true } } },
+        tutor: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
         },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    res.status(200).json({ status: "success", data: result.data, meta: result.meta });
+    return res.status(200).json({ data: documents });
   } catch (error) {
-    res.status(500).json({ status: "error", message: "Failed to fetch documents", error: error.message });
+    console.error("[getDocuments]", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-const getDownloadUrl = async (req, res) => {
+// GET /documents/:id - Get a single document by ID
+export const getDocument = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
 
-    const document = await prisma.document.findUnique({ where: { id } });
+    const document = await prisma.document.findUnique({
+      where: { id },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+        },
+        tutor: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+        },
+      },
+    });
 
     if (!document) {
-      return res.status(404).json({ status: "error", message: "Document not found" });
+      return res.status(404).json({ message: "Document not found" });
     }
 
-    const student = await prisma.student.findFirst({ where: { userId } });
-    const tutor = await prisma.tutor.findFirst({ where: { userId } });
-
-    const isStudent = student && document.studentId === student.id;
-    const isTutor = tutor && document.tutorId === tutor.id;
-
-    if (!isStudent && !isTutor) {
-      return res.status(403).json({ status: "error", message: "You do not have access to this document" });
-    }
-
-    const signedUrl = await getSignedUrl(
-      r2Client,
-      new GetObjectCommand({
-        Bucket: R2_BUCKET_NAME,
-        Key: document.fileKey,
-        ResponseContentDisposition: `attachment; filename="${document.fileName}"`,
-      }),
-      { expiresIn: 300 }
-    );
-
-    res.status(200).json({ status: "success", data: { url: signedUrl } });
+    return res.status(200).json({ data: document });
   } catch (error) {
-    res.status(500).json({ status: "error", message: "Failed to generate download URL", error: error.message });
+    console.error("[getDocument]", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-const deleteDocument = async (req, res) => {
+// POST /documents - Upload a new document
+export const createDocument = async (req: Request, res: Response) => {
+  try {
+    const { studentId, tutorId, title, file } = req.body;
+
+    if (!studentId || !tutorId || !title || !file) {
+      return res.status(400).json({ message: "studentId, tutorId, title, and file are required" });
+    }
+
+    const student = await prisma.student.findUnique({ where: { id: studentId } });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const tutor = await prisma.tutor.findUnique({ where: { id: tutorId } });
+    if (!tutor) {
+      return res.status(404).json({ message: "Tutor not found" });
+    }
+
+    const document = await prisma.document.create({
+      data: { studentId, tutorId, title, file },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+        },
+        tutor: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+        },
+      },
+    });
+
+    return res.status(201).json({ data: document, message: "Document uploaded successfully" });
+  } catch (error) {
+    console.error("[createDocument]", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+// PUT /documents/:id - Update a document title or file
+export const updateDocument = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const { title, file } = req.body;
 
-    const document = await prisma.document.findUnique({ where: { id } });
-
-    if (!document) {
-      return res.status(404).json({ status: "error", message: "Document not found" });
+    const existing = await prisma.document.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: "Document not found" });
     }
 
-    const student = await prisma.student.findFirst({ where: { userId } });
-    const tutor = await prisma.tutor.findFirst({ where: { userId } });
+    const document = await prisma.document.update({
+      where: { id },
+      data: {
+        ...(title && { title }),
+        ...(file && { file }),
+      },
+      include: {
+        student: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+        },
+        tutor: {
+          include: {
+            user: {
+              select: { id: true, name: true, email: true, image: true },
+            },
+          },
+        },
+      },
+    });
 
-    const isUploader =
-      (student && document.uploadedByStudentId === student.id) ||
-      (tutor && document.uploadedByTutorId === tutor.id);
+    return res.status(200).json({ data: document, message: "Document updated successfully" });
+  } catch (error) {
+    console.error("[updateDocument]", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
-    if (!isUploader) {
-      return res.status(403).json({ status: "error", message: "Only the uploader can delete this document" });
+// DELETE /documents/:id - Delete a document
+export const deleteDocument = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const existing = await prisma.document.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: "Document not found" });
     }
 
-    await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: document.fileKey }));
     await prisma.document.delete({ where: { id } });
 
-    res.status(200).json({ status: "success", message: "Document deleted successfully" });
+    return res.status(200).json({ message: "Document deleted successfully" });
   } catch (error) {
-    res.status(500).json({ status: "error", message: "Failed to delete document", error: error.message });
+    console.error("[deleteDocument]", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-export { uploadDocument, getDocuments, getDownloadUrl, deleteDocument };

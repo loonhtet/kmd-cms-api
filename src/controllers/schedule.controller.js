@@ -12,53 +12,61 @@ const getSchedules = async (req, res) => {
       ...(isCompleted !== undefined && { isCompleted: isCompleted === "true" }),
     };
 
-    const result = await paginate(prisma.schedule, req, {
-      where: whereClause,
-      select: {
-        id: true,
-        title: true,
-        type: true,
-        date: true,
-        startTime: true,
-        endTime: true,
-        link: true,
-        location: true,
-        note: true,
-        isCompleted: true,
-        createdAt: true,
-        updatedAt: true,
-        student: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
+    const [result, completedCount, pendingCount] = await Promise.all([
+      paginate(prisma.schedule, req, {
+        where: whereClause,
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          date: true,
+          startTime: true,
+          endTime: true,
+          link: true,
+          location: true,
+          note: true,
+          isCompleted: true,
+          createdAt: true,
+          updatedAt: true,
+          student: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          },
+          tutor: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  name: true,
+                  email: true,
+                },
               },
             },
           },
         },
-        tutor: {
-          select: {
-            id: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
+        orderBy: {
+          date: "asc",
         },
-      },
-      orderBy: {
-        date: "asc",
-      },
-    });
+      }),
+      prisma.schedule.count({ where: { ...whereClause, isCompleted: true } }),
+      prisma.schedule.count({ where: { ...whereClause, isCompleted: false } }),
+    ]);
 
     res.status(200).json({
       status: "success",
       data: result.data,
-      meta: result.meta,
+      meta: {
+        ...result.meta,
+        completedCount,
+        pendingCount,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -215,7 +223,17 @@ const updateSchedule = async (req, res) => {
 
     const scheduleExists = await prisma.schedule.findUnique({
       where: { id },
+      include: {
+        student: { select: { userId: true } },
+        tutor: { select: { userId: true } },
+      },
     });
+
+    console.log("isCompleted raw:", isCompleted);
+    console.log("isCompleted type:", typeof isCompleted);
+    console.log("scheduleExists.isCompleted:", scheduleExists.isCompleted);
+    console.log("student userId:", scheduleExists.student.userId);
+    console.log("tutor userId:", scheduleExists.tutor.userId);
 
     if (!scheduleExists) {
       return res.status(404).json({
@@ -238,9 +256,24 @@ const updateSchedule = async (req, res) => {
       ...(isCompleted !== undefined && { isCompleted }),
     };
 
-    await prisma.schedule.update({
-      where: { id },
-      data: updateData,
+    await prisma.$transaction(async (tx) => {
+      await tx.schedule.update({
+        where: { id },
+        data: updateData,
+      });
+
+      if (isCompleted === true && !scheduleExists.isCompleted) {
+        const scheduleDate = date ? new Date(date) : scheduleExists.date;
+
+        await tx.user.updateMany({
+          where: {
+            id: {
+              in: [scheduleExists.student.userId, scheduleExists.tutor.userId],
+            },
+          },
+          data: { lastActive: scheduleDate },
+        });
+      }
     });
 
     res.status(200).json({

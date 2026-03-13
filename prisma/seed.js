@@ -18,7 +18,7 @@ async function main() {
       image: null,
       role: {
         create: {
-          role: "ADMIN_STAFF",
+          role: "ADMIN",
         },
       },
       staffProfile: {
@@ -161,6 +161,26 @@ async function main() {
   });
   console.log("Third student user created and assigned to tutor:", student3);
 
+  await prisma.sidebar.deleteMany();
+
+  // Seed sidebar permissions
+  const sidebarPermissions = {
+    STUDENT: ["messages", "meetings", "documents", "blog"],
+    TUTOR: ["messages", "meetings", "documents", "blog"],
+    STAFF: ["dashboard", "blog", "allocate tutor", "account"],
+    ADMIN: ["dashboard", "blog", "allocate tutor", "account"],
+  };
+
+  const permissionsData = Object.entries(sidebarPermissions).flatMap(
+    ([role, tabs]) => tabs.map((tab) => ({ role, tab })),
+  );
+
+  const { count } = await prisma.sidebar.createMany({
+    data: permissionsData,
+    skipDuplicates: true,
+  });
+  console.log(`Sidebar permissions seeded: ${count} records inserted`);
+
   console.log("\n=== Seed Summary ===");
   console.log("All users password: password123");
   console.log("\nCreated users:");
@@ -171,6 +191,7 @@ async function main() {
   console.log("5. Student - student@example.com");
   console.log("6. Student 2 - student2@example.com (assigned to John Tutor)");
   console.log("7. Student 3 - student3@example.com (assigned to John Tutor)");
+  console.log("\nSidebar permissions seeded for: STUDENT, TUTOR, STAFF, ADMIN");
   console.log("===================\n");
 }
 

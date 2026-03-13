@@ -4,15 +4,21 @@ import paginate from "../utils/pagination.js";
 
 const getUsers = async (req, res) => {
   try {
-    const { role } = req.query;
+    const { role, search } = req.query;
 
-    const whereClause = role
-      ? {
-          role: {
-            role: role,
-          },
-        }
-      : {};
+    const whereClause = {
+      ...(role && {
+        role: {
+          role: role,
+        },
+      }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+    };
 
     const result = await paginate(prisma.user, req, {
       where: whereClause,
@@ -23,6 +29,7 @@ const getUsers = async (req, res) => {
         image: true,
         createdAt: true,
         updatedAt: true,
+        lastActive: true,
         role: {
           select: {
             role: true,
@@ -43,6 +50,7 @@ const getUsers = async (req, res) => {
       status: "success",
       data: transformedData,
       meta: result.meta,
+      pagination: result.pagination,
     });
   } catch (error) {
     res.status(500).json({
@@ -103,6 +111,7 @@ const getSingleUser = async (req, res) => {
         image: true,
         createdAt: true,
         updatedAt: true,
+        lastActive: true,
         role: {
           select: {
             role: true,
@@ -188,7 +197,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    const validRoles = ["STUDENT", "TUTOR", "STAFF", "ADMIN_STAFF"];
+    const validRoles = ["STUDENT", "TUTOR", "STAFF", "ADMIN"];
     const normalizedRole = role.toUpperCase();
 
     if (!validRoles.includes(normalizedRole)) {
@@ -229,14 +238,11 @@ const createUser = async (req, res) => {
             userId: user.id,
           },
         });
-      } else if (
-        normalizedRole === "STAFF" ||
-        normalizedRole === "ADMIN_STAFF"
-      ) {
+      } else if (normalizedRole === "STAFF" || normalizedRole === "ADMIN") {
         await tx.staff.create({
           data: {
             userId: user.id,
-            isAdmin: normalizedRole === "ADMIN_STAFF",
+            isAdmin: normalizedRole === "ADMIN",
           },
         });
       }

@@ -16,6 +16,7 @@ model User {
   updatedAt                                 DateTime       @updatedAt
   resetOTP                                  String?
   resetOTPExpiry                            DateTime?
+  lastActive                                DateTime?
   Conversation_Conversation_studentIdToUser Conversation[] @relation("Conversation_studentIdToUser")
   Conversation_Conversation_tutorIdToUser   Conversation[] @relation("Conversation_tutorIdToUser")
   Message_Message_receiverIdToUser          Message[]      @relation("Message_receiverIdToUser")
@@ -25,6 +26,7 @@ model User {
   tutorProfile                              Tutor?
   role                                      UserRole?
   blogs                                     Blog[]
+  comments                                  Comment[]
 }
 
 model UserRole {
@@ -114,6 +116,7 @@ model Blog {
   content    String
   userId     String
   user       User       @relation(fields: [userId], references: [id])
+  slug       String?     @unique
 
   assetKey   String?
   assetType  AssetType?
@@ -122,6 +125,18 @@ model Blog {
   updatedAt  DateTime   @updatedAt
 
   tags       Tag[]
+  comments  Comment[]
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  blogId    String
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Tag {
@@ -140,34 +155,45 @@ model Email {
 }
 
 model Conversation {
-  id                                String    @id
+  id                                String    @id @default(uuid())
   studentId                         String
   tutorId                           String
   createdAt                         DateTime  @default(now())
-  updatedAt                         DateTime
+  updatedAt                         DateTime  @updatedAt
   User_Conversation_studentIdToUser User      @relation("Conversation_studentIdToUser", fields: [studentId], references: [id], onDelete: Cascade)
   User_Conversation_tutorIdToUser   User      @relation("Conversation_tutorIdToUser", fields: [tutorId], references: [id], onDelete: Cascade)
   Message                           Message[]
 }
 
 model Message {
-  id                            String       @id
+  id                            String       @id @default(uuid())
   conversationId                String
   senderId                      String
   receiverId                    String
   createdAt                     DateTime     @default(now())
-  updatedAt                     DateTime
+  updatedAt                     DateTime     @updatedAt
   content                       String
   Conversation                  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   User_Message_receiverIdToUser User         @relation("Message_receiverIdToUser", fields: [receiverId], references: [id], onDelete: Cascade)
   User_Message_senderIdToUser   User         @relation("Message_senderIdToUser", fields: [senderId], references: [id], onDelete: Cascade)
 }
 
+model Sidebar {
+  id        String   @id @default(uuid())
+  role      RoleType
+  tab       String   @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, tab])
+  @@index([role])
+}
+
 enum RoleType {
   STUDENT
   TUTOR
   STAFF
-  ADMIN_STAFF
+  ADMIN
 }
 
 enum MeetingType {

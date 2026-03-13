@@ -78,4 +78,59 @@ const scheduleSchema = z
     },
   );
 
-export { scheduleSchema };
+const updateScheduleSchema = z
+  .object({
+    title: z
+      .string()
+      .max(100, "Title must not exceed 100 characters")
+      .min(1, "Title cannot be empty")
+      .optional(),
+    type: z
+      .enum(["VIRTUAL", "IN_PERSON"], {
+        invalid_type_error: "Type must be one of: VIRTUAL, IN_PERSON",
+      })
+      .optional(),
+    date: z
+      .string()
+      .date("Date must be a valid date in YYYY-MM-DD format")
+      .optional(),
+    startTime: z
+      .string()
+      .regex(
+        /^([0-1]\d|2[0-3]):([0-5]\d)$/,
+        "Start time must be in HH:MM format",
+      )
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^([0-1]\d|2[0-3]):([0-5]\d)$/, "End time must be in HH:MM format")
+      .optional(),
+    link: z
+      .string()
+      .url("Meeting link must be a valid URL")
+      .optional()
+      .nullable(),
+    location: z
+      .string()
+      .min(1, "Location cannot be empty")
+      .optional()
+      .nullable(),
+    note: z.string().optional().nullable(),
+    isCompleted: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.startTime && data.endTime) {
+        const [startHour, startMin] = data.startTime.split(":").map(Number);
+        const [endHour, endMin] = data.endTime.split(":").map(Number);
+        return endHour * 60 + endMin > startHour * 60 + startMin;
+      }
+      return true;
+    },
+    {
+      message: "End time must be after start time",
+      path: ["endTime"],
+    },
+  );
+
+export { scheduleSchema, updateScheduleSchema };

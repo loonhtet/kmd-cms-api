@@ -1,4 +1,5 @@
 import { prisma } from "../config/db.js";
+import { sendEmail } from "../services/email.service.js";
 
 const assignStudentToTutor = async (req, res) => {
   try {
@@ -10,7 +11,9 @@ const assignStudentToTutor = async (req, res) => {
       include: {
         user: {
           select: {
+            id: true,
             name: true,
+            email:true
           },
         },
       },
@@ -107,6 +110,62 @@ const assignStudentToTutor = async (req, res) => {
       },
     });
 
+     if (updatedStudents.length > 0) {
+      for (const student of updatedStudents) {
+        await prisma.conversation.create({
+          data: {
+            studentId: student.user.id,
+            tutorId: tutor.user.id,
+          },
+        });
+      }
+    }
+
+    // =========================
+    // Send emails
+    // =========================
+   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      try {
+        const studentNamesString = updatedStudents
+          .map((s) => s.user.name)
+          .join(", ");
+
+        // Send emails to students sequentially
+        for (const student of updatedStudents) {
+          if (student.user.email) {
+            console.log("Sending email to student:", student.user.email);
+            await sendEmail({
+              to: student.user.email,
+              type: "student-assigned",
+              variables: {
+                studentName: student.user.name,
+                tutorName: tutor.user.name,
+                tutorEmail: tutor.user.email,
+              },
+            });
+            await delay(600); // wait 0.6 second between each email
+          }
+        }
+
+        // Send email to tutor after students
+        if (tutor.user.email) {
+          console.log("Sending email to tutor:", tutor.user.email);
+          await sendEmail({
+            to: tutor.user.email,
+            type: "tutor-assigned",
+            variables: {
+              tutorName: tutor.user.name,
+              studentNames: studentNamesString,
+              studentCount: updatedStudents.length,
+            },
+          });
+        }
+
+      } catch (error) {
+        console.error("Email sending failed:", error.message);
+      }
+
     const studentNames = students.map((s) => s.user.name).join(", ");
     const message =
       studentIds.length === 1
@@ -158,6 +217,12 @@ const unassignStudentFromTutor = async (req, res) => {
             name: true,
           },
         },
+
+        tutor:{
+          select:{
+            userId:true,
+          }
+        }
       },
     });
 
@@ -175,12 +240,21 @@ const unassignStudentFromTutor = async (req, res) => {
       });
     }
 
-    await prisma.student.update({
+   const updatedStudent = await prisma.student.update({
       where: { id: studentId },
       data: {
         tutorId: null,
       },
     });
+
+    if(updatedStudent) {
+      await prisma.conversation.deleteMany({
+        where: {
+          studentId: student.userId,
+          tutorId: student.tutor.userId,
+        },
+      });
+    }
 
     res.status(200).json({
       status: "success",
@@ -310,12 +384,12 @@ const getStudentWithTutor = async (req, res) => {
         hasTutor: !!student.tutor,
         tutor: student.tutor
           ? {
-              userId: student.tutor.userId,
-              name: student.tutor.user.name,
-              email: student.tutor.user.email,
-              image: student.tutor.user.image,
-              assignedAt: student.updatedAt,
-            }
+            userId: student.tutor.userId,
+            name: student.tutor.user.name,
+            email: student.tutor.user.email,
+            image: student.tutor.user.image,
+            assignedAt: student.updatedAt,
+          }
           : null,
       },
     });
