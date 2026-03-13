@@ -1,19 +1,23 @@
 import { Router } from "express";
 import {
-  uploadDocument,
   getDocuments,
-  getDownloadUrl,
+  getDocument,
+  createDocument,
+  updateDocument,
   deleteDocument,
 } from "../controllers/document.controller.js";
-import { upload } from "../middleware/uploadMiddleware.js";
-import { documentSchema } from "../schemas/document.schema.js";
+import {
+  documentSchema,
+  updateDocumentSchema,
+} from "../schemas/document.schema.js";
 import validate from "../utils/validate.js";
 
 const documentRouter = Router();
 
 documentRouter.get("/", getDocuments);
-documentRouter.post("/", upload.single("file"), validate(documentSchema), uploadDocument);
-documentRouter.get("/:id/download", getDownloadUrl);
+documentRouter.get("/:id", getDocument);
+documentRouter.post("/", validate(documentSchema), createDocument);
+documentRouter.put("/:id", validate(updateDocumentSchema), updateDocument);
 documentRouter.delete("/:id", deleteDocument);
 
 export default documentRouter;
