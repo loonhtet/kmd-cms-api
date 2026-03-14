@@ -16,6 +16,12 @@ const scheduleSchema = z
       required_error: "Meeting type is required",
       invalid_type_error: "Type must be one of: VIRTUAL, IN_PERSON",
     }),
+    linkType: z
+      .enum(["ZOOM", "TEAM", "MEET"], {
+        invalid_type_error: "Link type must be one of: ZOOM, TEAM, MEET",
+      })
+      .optional()
+      .nullable(),
     date: z
       .string({ required_error: "Date is required" })
       .date("Date must be a valid date in YYYY-MM-DD format"),
@@ -46,6 +52,16 @@ const scheduleSchema = z
   })
   .refine(
     (data) => {
+      if (data.type === "VIRTUAL" && !data.linkType) return false;
+      return true;
+    },
+    {
+      message: "Link type is required for virtual meetings",
+      path: ["linkType"],
+    },
+  )
+  .refine(
+    (data) => {
       if (data.type === "VIRTUAL" && !data.link) return false;
       return true;
     },
@@ -62,6 +78,16 @@ const scheduleSchema = z
     {
       message: "Location is required for in-person meetings",
       path: ["location"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.type === "IN_PERSON" && data.linkType) return false;
+      return true;
+    },
+    {
+      message: "Link type should not be provided for in-person meetings",
+      path: ["linkType"],
     },
   )
   .refine(
@@ -90,6 +116,12 @@ const updateScheduleSchema = z
         invalid_type_error: "Type must be one of: VIRTUAL, IN_PERSON",
       })
       .optional(),
+    linkType: z
+      .enum(["ZOOM", "TEAM", "MEET"], {
+        invalid_type_error: "Link type must be one of: ZOOM, TEAM, MEET",
+      })
+      .optional()
+      .nullable(),
     date: z
       .string()
       .date("Date must be a valid date in YYYY-MM-DD format")
@@ -118,6 +150,47 @@ const updateScheduleSchema = z
     note: z.string().optional().nullable(),
     isCompleted: z.boolean().optional(),
   })
+  .refine(
+    (data) => {
+      if (data.type === "VIRTUAL" && data.linkType === null) return false;
+      if (data.type === "VIRTUAL" && data.linkType === undefined) return false;
+      return true;
+    },
+    {
+      message: "Link type is required for virtual meetings",
+      path: ["linkType"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.type === "VIRTUAL" && !data.link) return false;
+      return true;
+    },
+    {
+      message: "Meeting link is required for virtual meetings",
+      path: ["link"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.type === "IN_PERSON" && data.linkType) return false;
+      return true;
+    },
+    {
+      message: "Link type should not be provided for in-person meetings",
+      path: ["linkType"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.type === "IN_PERSON" && data.location === null) return false;
+      return true;
+    },
+    {
+      message: "Location is required for in-person meetings",
+      path: ["location"],
+    },
+  )
   .refine(
     (data) => {
       if (data.startTime && data.endTime) {
