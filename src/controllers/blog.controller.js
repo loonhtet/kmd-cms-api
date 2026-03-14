@@ -127,7 +127,7 @@ export const getSingleBlog = async (req, res) => {
 export const createBlog = async (req, res) => {
   let uploadedKey = null;
   try {
-    const { title, content, tagIds } = req.body;
+    const { title, content, userId, tagIds } = req.body;
 
     let assetType = null;
     if (req.file) {
@@ -151,7 +151,7 @@ export const createBlog = async (req, res) => {
         title,
         content,
         slug,
-        userId: req.user.id,
+        userId,
         assetKey: uploadedKey,
         assetType,
         tags: tagIds?.length
