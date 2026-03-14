@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Student Inactivity Alert</title>
+<style>
+    body {
+        background: #f4f6f8;
+        font-family: Arial, Helvetica, sans-serif;
+        padding: 40px 0;
+        margin: 0;
+    }
+
+    .container {
+        max-width: 600px;
+        margin: auto;
+        background: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .header {
+        background: #FFC107;
+        color: #333;
+        padding: 20px 25px;
+        font-size: 20px;
+        font-weight: bold;
+        text-align: center;
+    }
+
+    .content {
+        padding: 30px 25px;
+        color: #333;
+        line-height: 1.6;
+    }
+
+    .student-box {
+        background: #eef4fb;
+        border-left: 5px solid #2b86c5;
+        padding: 15px 20px;
+        margin: 20px 0;
+        border-radius: 6px;
+    }
+
+    .student-box p {
+        margin: 5px 0;
+        font-size: 16px;
+    }
+
+    .footer {
+        font-size: 13px;
+        color: #777;
+        margin-top: 20px;
+    }
+
+    a {
+        color: #2b86c5;
+        text-decoration: none;
+    }
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="header">
+        Student Inactivity Alert
+    </div>
+
+    <div class="content">
+
+        <p>Dear {{tutorName}},</p>
+
+        <p>
+            This is an automated notification from the e-tutoring system. 
+            The system has detected that the following student has had no interaction with the learning platform for more than 28 days.
+        </p>
+
+        <div class="student-box">
+            <p><strong>Student Name:</strong> {{studentName}}</p>
+            <p><strong>Email:</strong> <a href="mailto:{{studentEmail}}">{{studentEmail}}</a></p>
+        </div>
+
+        <p>Please contact the student for support and ensure they remain engaged with their studies.</p>
+
+        <p>If the student continues to remain inactive, further academic action may be required.</p>
+
+        <p>Thank you for your support in helping students succeed.</p>
+
+        <p>Best regards,</p>
+
+        <p>
+            Academic Monitoring System<br>
+            <a href="mailto:admin@university.edu">admin@university.edu</a>
+        </p>
+
+    </div>
+</div>
+
+</body>
+</html>

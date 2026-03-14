@@ -1,5 +1,3 @@
-import { prisma } from "../config/db.js";
-
 export const requireStaffOrAdmin = (req, res, next) => {
   if (!req.userRole || !["STAFF", "ADMIN"].includes(req.userRole)) {
     return res.status(403).json({

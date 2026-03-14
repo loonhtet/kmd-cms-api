@@ -10,6 +10,8 @@ import {
 import { userSchema } from "../schemas/user.schema.js";
 import validate from "../utils/validate.js";
 import { requireStaffOrAdmin } from "../middleware/permissionMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
+
 
 const userRouter = Router();
 
@@ -19,10 +21,11 @@ userRouter.get("/lookup", getUserLookup);
 
 userRouter.get("/:id", getSingleUser);
 
-userRouter.post("/", validate(userSchema), requireStaffOrAdmin, createUser);
+userRouter.post("/", protect, validate(userSchema), requireStaffOrAdmin, createUser);
 
-userRouter.put("/:id", requireStaffOrAdmin, updateUser);
+userRouter.put("/:id", protect, requireStaffOrAdmin, updateUser);
 
-userRouter.delete("/:id", requireStaffOrAdmin, deleteUser);
+userRouter.delete("/:id", protect, requireStaffOrAdmin, deleteUser);
+
 
 export default userRouter;
