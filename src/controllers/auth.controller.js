@@ -29,7 +29,7 @@ const login = async (req, res) => {
     }
 
     // GENERATE JWT TOKEN
-    const token = generateToken(user.id, res);
+    const token = generateToken(user.id, user.role.role, res);
 
     res.status(200).json({
       status: "success",
@@ -39,7 +39,6 @@ const login = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
-        image: user.image,
         role: user.role.role,
       },
     });
@@ -182,6 +181,15 @@ const resetPassword = async (req, res) => {
         where: { id: user.id },
         data: {
           password: hashedPassword,
+        },
+      });
+
+      await sendEmail({
+        to: email,
+        type: "reset-password",
+        variables: {
+          password: newPassword,
+          studentName: user.name,
         },
       });
     }

@@ -5,10 +5,14 @@ const getSchedules = async (req, res) => {
   try {
     const { studentId, tutorId, type, isCompleted } = req.query;
 
+    const validTypes = ["VIRTUAL", "IN_PERSON"];
+    const normalizedType = type?.toUpperCase();
+
     const whereClause = {
       ...(studentId && { studentId }),
       ...(tutorId && { tutorId }),
-      ...(type && { type: type.toUpperCase() }),
+      ...(normalizedType &&
+        validTypes.includes(normalizedType) && { type: normalizedType }),
       ...(isCompleted !== undefined && { isCompleted: isCompleted === "true" }),
     };
 
@@ -19,6 +23,7 @@ const getSchedules = async (req, res) => {
           id: true,
           title: true,
           type: true,
+          linkType: true,
           date: true,
           startTime: true,
           endTime: true,
@@ -87,6 +92,7 @@ const getSingleSchedule = async (req, res) => {
         id: true,
         title: true,
         type: true,
+        linkType: true,
         date: true,
         startTime: true,
         endTime: true,
@@ -148,6 +154,7 @@ const createSchedule = async (req, res) => {
       tutorId,
       title,
       type,
+      linkType,
       date,
       startTime,
       endTime,
@@ -178,15 +185,37 @@ const createSchedule = async (req, res) => {
       });
     }
 
+    const parsedStartTime = new Date(`1970-01-01T${startTime}:00.000Z`);
+    const parsedEndTime = new Date(`1970-01-01T${endTime}:00.000Z`);
+
+    const conflict = await prisma.schedule.findFirst({
+      where: {
+        date: new Date(date),
+        OR: [{ studentId }, { tutorId }],
+        AND: [
+          { startTime: { lt: parsedEndTime } },
+          { endTime: { gt: parsedStartTime } },
+        ],
+      },
+    });
+
+    if (conflict) {
+      return res.status(409).json({
+        status: "error",
+        message: "A schedule conflict exists for the selected time slot",
+      });
+    }
+
     await prisma.schedule.create({
       data: {
         studentId,
         tutorId,
         title,
         type,
+        linkType: linkType || null,
         date: new Date(date),
-        startTime: new Date(`1970-01-01T${startTime}:00.000Z`),
-        endTime: new Date(`1970-01-01T${endTime}:00.000Z`),
+        startTime: parsedStartTime,
+        endTime: parsedEndTime,
         link: link || null,
         location: location || null,
         note: note || null,
@@ -212,6 +241,7 @@ const updateSchedule = async (req, res) => {
     const {
       title,
       type,
+      linkType,
       date,
       startTime,
       endTime,
@@ -236,9 +266,48 @@ const updateSchedule = async (req, res) => {
       });
     }
 
+    const effectiveType = type ?? scheduleExists.type;
+    const effectiveLinkType =
+      linkType !== undefined ? linkType : scheduleExists.linkType;
+
+    // Cross-validate type vs linkType
+    if (effectiveType === "VIRTUAL" && !effectiveLinkType) {
+      return res.status(400).json({
+        status: "error",
+        message: "Link type is required for virtual meetings",
+      });
+    }
+
+    if (effectiveType === "IN_PERSON" && effectiveLinkType) {
+      return res.status(400).json({
+        status: "error",
+        message: "Link type should not be provided for in-person meetings",
+      });
+    }
+
+    const effectiveStartTime = startTime ?? scheduleExists.startTime;
+    const effectiveEndTime = endTime ?? scheduleExists.endTime;
+
+    const toMinutes = (t) => {
+      if (t instanceof Date) {
+        return t.getUTCHours() * 60 + t.getUTCMinutes();
+      }
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    if (toMinutes(effectiveEndTime) <= toMinutes(effectiveStartTime)) {
+      return res.status(400).json({
+        status: "error",
+        message: "End time must be after start time",
+      });
+    }
+
     const updateData = {
       ...(title && { title }),
       ...(type && { type }),
+      // Allow linkType to be explicitly set to null (e.g. switching to IN_PERSON)
+      ...(linkType !== undefined && { linkType: linkType || null }),
       ...(date && { date: new Date(date) }),
       ...(startTime && {
         startTime: new Date(`1970-01-01T${startTime}:00.000Z`),

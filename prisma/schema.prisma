@@ -78,6 +78,7 @@ model Schedule {
   tutorId     String
   title       String      @db.VarChar(100)
   type        MeetingType
+  linkType    LinkType?
   date        DateTime    @db.Date
   startTime   DateTime    @db.Time(6)
   endTime     DateTime    @db.Time(6)
@@ -183,6 +184,12 @@ enum RoleType {
 enum MeetingType {
   VIRTUAL
   IN_PERSON
+}
+
+enum LinkType {
+  ZOOM
+  TEAM
+  MEET
 }
 
 enum AssetType {

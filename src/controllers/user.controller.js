@@ -120,16 +120,20 @@ const getUsers = async (req, res) => {
 
 const getUserLookup = async (req, res) => {
   try {
-    const { role } = req.query;
-
-    const whereClause = role
-      ? {
-          role: {
-            role: role,
-          },
-        }
-      : {};
-
+    const { role, search } = req.query;
+    const whereClause = {
+      ...(role && {
+        role: {
+          role: role,
+        },
+      }),
+      ...(search && {
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { email: { contains: search, mode: "insensitive" } },
+        ],
+      }),
+    };
     const users = await prisma.user.findMany({
       where: whereClause,
       select: {
@@ -141,7 +145,6 @@ const getUserLookup = async (req, res) => {
         name: "asc",
       },
     });
-
     res.status(200).json({
       status: "success",
       data: users,
@@ -257,7 +260,7 @@ const createUser = async (req, res) => {
     if (normalizedRole === "ADMIN") {
       return res.status(403).json({
         status: "error",
-        message: "Creating an Admin account is not allowed",
+        message: "You don't have permission to create an admin account.",
       });
     }
 

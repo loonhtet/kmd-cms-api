@@ -1,92 +1,102 @@
 import cron from "node-cron";
 import { prisma } from "../config/db.js";
+import { sendEmail } from "../services/email.service.js";
 
-const INACTIVE_DAYS = 2;
-const EMAIL_COOLDOWN_DAYS = 1; // weekly, so don't resend within 7 days
+const INACTIVE_DAYS = 28;
+const EMAIL_COOLDOWN_DAYS = 7;
 
-const userJob = () => {
-  // Runs every Monday at 9:00 AM
-  cron.schedule("0 9 * * 1", async () => {
-    console.log("Running inactive user check...");
+export const runJob = async () => {
+  const now = new Date();
 
-    try {
-      const now = new Date();
+  const inactiveThreshold = new Date(now);
+  inactiveThreshold.setDate(inactiveThreshold.getDate() - INACTIVE_DAYS);
 
-      const inactiveThreshold = new Date(now);
-      inactiveThreshold.setDate(inactiveThreshold.getDate() - INACTIVE_DAYS);
+  const emailCooldown = new Date(now);
+  emailCooldown.setDate(emailCooldown.getDate() - EMAIL_COOLDOWN_DAYS);
 
-      const emailCooldown = new Date(now);
-      emailCooldown.setDate(emailCooldown.getDate() - EMAIL_COOLDOWN_DAYS);
-
-      // Find users who:
-      // 1. lastActive is older than 28 days (or never active)
-      // 2. haven't been sent this email in the last 7 days
-      const inactiveUsers = await prisma.user.findMany({
-        where: {
-          AND: [
-            {
-              OR: [
-                { lastActive: { lte: inactiveThreshold } },
-                { lastActive: null },
-              ],
-            },
-            {
-              OR: [
-                { lastInactiveEmailSent: { lte: emailCooldown } },
-                { lastInactiveEmailSent: null },
-              ],
-            },
+  const inactiveStudents = await prisma.user.findMany({
+    where: {
+      studentProfile: { isNot: null },
+      AND: [
+        { lastActive: { lte: inactiveThreshold } },
+        {
+          OR: [
+            { lastInactiveEmailSent: { lte: emailCooldown } },
+            { lastInactiveEmailSent: null },
           ],
         },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      lastActive: true,
+      studentProfile: {
         select: {
-          id: true,
-          name: true,
-          email: true,
-          lastActive: true,
+          tutor: {
+            select: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (inactiveStudents.length === 0) return;
+
+  for (const user of inactiveStudents) {
+    try {
+      const tutor = user.studentProfile?.tutor?.user ?? null;
+      const student = { name: user.name, email: user.email };
+
+      await sendEmail({
+        to: user.email,
+        type: "inactive-warning",
+        variables: {
+          tutorName: tutor?.name ?? null,
+          studentName: student.name,
+          studentEmail: student.email,
         },
       });
 
-      if (inactiveUsers.length === 0) {
-        console.log("No inactive users found.");
-        return;
+      if (tutor) {
+        await sendEmail({
+          to: tutor.email,
+          type: "inactive-warning-to-tutor",
+          variables: {
+            tutorName: tutor.name,
+            studentName: student.name,
+            studentEmail: student.email,
+          },
+        });
       }
 
-      console.log(`Found ${inactiveUsers.length} inactive users.`);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastInactiveEmailSent: now },
+      });
 
-      // Send emails and update lastInactiveEmailSent
-      await Promise.all(
-        inactiveUsers.map(async (user) => {
-          try {
-            console.log(`Sending email to ${user.email}`);
-            // await sendEmail({
-            //   to: user.email,
-            //   subject: "We miss you!",
-            //   html: `
-            //     <h2>Hi ${user.name},</h2>
-            //     <p>We noticed you haven't been active for a while.</p>
-            //     <p>Come back and check what's new!</p>
-            //   `,
-            // });
-
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { lastInactiveEmailSent: now },
-            });
-
-            console.log(`Email sent to ${user.email}`);
-          } catch (err) {
-            console.error(
-              `Failed to send email to ${user.email}:`,
-              err.message,
-            );
-          }
-        }),
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    } catch (err) {
+      console.error(
+        `Failed to process inactive student ${user.email}:`,
+        err.message,
       );
-
-      console.log("Inactive user job completed.");
-    } catch (error) {
-      console.error("Inactive user job failed:", error.message);
     }
+  }
+};
+
+const userJob = () => {
+  cron.schedule("0 9 * * 1", runJob, {
+    timezone: "Asia/Bangkok",
   });
 };
 
