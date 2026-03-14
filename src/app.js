@@ -30,10 +30,18 @@ const globalLimiter = rateLimit({
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://e-tutoring-seven.vercel.app",
+    ],
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+
+app.options("*", cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -46,7 +54,7 @@ app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
 app.use("/api/v1/email", emailRouter);
-app.use("/api/v1/blogs", protect, blogRouter);
+app.use("/api/v1/blogs", blogRouter);
 app.use("/api/v1/tags", tagRouter);
 app.use("/api/v1/sidebar", protect, sidebarRouter);
 

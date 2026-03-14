@@ -179,11 +179,6 @@ export const createBlog = async (req, res) => {
         assetUrl,
       },
     });
-
-    res.status(201).json({
-      status: "success",
-      message: "Blog uploaded successfully",
-    });
   } catch (error) {
     if (uploadedKey) {
       await deleteFromCloudflare(uploadedKey);
