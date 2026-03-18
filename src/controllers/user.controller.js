@@ -138,8 +138,28 @@ const getUserLookup = async (req, res) => {
       where: whereClause,
       select: {
         id: true,
-        name: true,
         email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        lastActive: true,
+        role: { select: { role: true } },
+        studentProfile: {
+          select: {
+            id: true,
+            tutorId: true,
+            tutor: {
+              select: {
+                id: true,
+                user: {
+                  select: { id: true, name: true, email: true },
+                },
+              },
+            },
+          },
+        },
+        tutorProfile: { select: { id: true } },
+        staffProfile: { select: { id: true, isAdmin: true } },
       },
       orderBy: {
         name: "asc",

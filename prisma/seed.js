@@ -156,10 +156,10 @@ async function main() {
 
   // Seed sidebar permissions
   const sidebarPermissions = {
-    STUDENT: ["messages", "meetings", "documents", "blog"],
-    TUTOR: ["messages", "meetings", "documents", "blog"],
-    STAFF: ["dashboard", "blog", "allocate tutor", "account"],
-    ADMIN: ["dashboard", "blog", "allocate tutor", "account"],
+    STUDENT: ["student_dashboard", "messages", "meetings", "documents", "blog"],
+    TUTOR: ["tutor_dashboard", "messages", "meetings", "documents", "blog"],
+    STAFF: ["dashboard", "blog", "allocate", "account"],
+    ADMIN: ["dashboard", "blog", "allocate", "account", "analytics"],
   };
 
   const permissionsData = Object.entries(sidebarPermissions).flatMap(
