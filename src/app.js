@@ -9,7 +9,6 @@ import { protect } from "./middleware/authMiddleware.js";
 import allocateRouter from "./routes/allocate.route.js";
 import conversationRouter from "./routes/conversation.route.js";
 
-
 import { initSocket } from "./socket.js";
 import http from "http";
 import emailRouter from "./routes/email.route.js";
@@ -19,15 +18,18 @@ import scheduleRouter from "./routes/schedule.route.js";
 import documentRouter from "./routes/document.route.js"; // for document routes
 import sidebarRouter from "./routes/sidebar.route.js";
 import tagRouter from "./routes/tag.router.js";
+import userJob from "./jobs/user.job.js";
+import userActivityRouter from "./routes/userActivity.route.js";
+import cronRouter from "./routes/corn.route.js";
 
 config();
 connectDB();
+userJob();
 
 const app = express();
 const server = http.createServer(app);
 const io = initSocket(server);
 app.set("io", io);
-
 
 const globalLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
@@ -62,12 +64,17 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/conversation", protect, conversationRouter);
+<<<<<<< HEAD
+=======
+app.use("/api/v1/cron", cronRouter);
+>>>>>>> 99c96730754a2455b795b75a1f205628ecc3d281
 app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
 app.use("/api/v1/documents", documentRouter);
 app.use("/api/v1/blogs", blogRouter);
 app.use("/api/v1/tags", tagRouter);
 app.use("/api/v1/sidebar", protect, sidebarRouter);
+app.use("/api/v1/user-activity", protect, userActivityRouter);
 
 app.use((req, res) => {
   res.status(404).json({

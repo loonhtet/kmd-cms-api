@@ -48,7 +48,7 @@ export const getComments = async (req, res) => {
 export const createComment = async (req, res) => {
   try {
     const { blogId } = req.params;
-    const { content } = req.body;
+    const { content, userId } = req.body;
 
     const blog = await prisma.blog.findUnique({ where: { id: blogId } });
     if (!blog) {
@@ -62,7 +62,7 @@ export const createComment = async (req, res) => {
       data: {
         content,
         blogId,
-        userId: req.user.id,
+        userId,
       },
       include: {
         user: {
