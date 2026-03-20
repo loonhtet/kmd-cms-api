@@ -1,5 +1,6 @@
-import { Request, Response } from "express";
-import { prisma } from "../lib/prisma";
+
+import { prisma } from "../config/db.js";
+
 
 // GET /documents - Get all documents for a student or tutor
 export const getDocuments = async (req, res) => {

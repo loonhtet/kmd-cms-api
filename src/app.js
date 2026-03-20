@@ -64,7 +64,7 @@ app.use("/api/v1/roles", protect, roleRouter);
 app.use("/api/v1/conversation", protect, conversationRouter);
 app.use("/api/v1/allocate", allocateRouter);
 app.use("/api/v1/schedule", protect, scheduleRouter);
-app.use("/api/v1/documents", protect, documentRouter);
+app.use("/api/v1/documents", documentRouter);
 app.use("/api/v1/blogs", blogRouter);
 app.use("/api/v1/tags", tagRouter);
 app.use("/api/v1/sidebar", protect, sidebarRouter);
