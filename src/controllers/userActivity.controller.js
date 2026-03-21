@@ -1,3 +1,4 @@
+import { email } from "zod";
 import { prisma } from "../config/db.js";
 import { UAParser } from "ua-parser-js";
 
@@ -18,11 +19,12 @@ const getLeaderboardRows = async ({ skip = 0, take = 10 } = {}) => {
       ua."userId",
       u."name",
       ur."role",
+      u."email",
       COUNT(*)::int AS "totalVisits"
     FROM "UserActivity" ua
     JOIN "User" u ON u."id" = ua."userId"
     LEFT JOIN "UserRole" ur ON ur."userId" = u."id"
-    GROUP BY ua."userId", u."name", ur."role"
+    GROUP BY ua."userId", u."name", ur."role", u."email"
     ORDER BY COUNT(*) DESC, ua."userId" ASC
     OFFSET ${skip}
     LIMIT ${take}
@@ -86,6 +88,7 @@ const mapLeaderboardRows = (rows, skip = 0) => {
     rank: skip + index + 1,
     userId: row.userId,
     name: row.name,
+    email: row.email,
     role: row.role,
     totalVisits: row.totalVisits,
   }));
