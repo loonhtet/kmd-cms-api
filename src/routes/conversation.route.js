@@ -20,7 +20,7 @@ conversationRouter.post(
   sendMessage
 );
 conversationRouter.get("/messages", getMessages);
-conversationRouter.patch(
+conversationRouter.post(
   "/messages/status",
   validate(updateMessageReadStatusSchema),
   updateMessageReadStatus
