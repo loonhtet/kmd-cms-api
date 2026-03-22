@@ -172,6 +172,8 @@ model Message {
   conversationId                String
   senderId                      String
   receiverId                    String
+  isRead                        Boolean      @default(false)
+  readAt                        DateTime?
   createdAt                     DateTime     @default(now())
   updatedAt                     DateTime     @updatedAt
   content                       String

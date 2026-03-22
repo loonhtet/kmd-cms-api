@@ -10,5 +10,11 @@ const sendMessageSchema = z.object({
     .max(1000, "Content must be less than 1000 characters"),
 });
 
+const updateMessageReadStatusSchema = z.object({
+  messageId: z
+    .string({ required_error: "Message ID is required" })
+    .uuid("Invalid message ID format"),
+  isRead: z.boolean({ required_error: "Read status is required" }),
+});
 
-export { sendMessageSchema };
+export { sendMessageSchema, updateMessageReadStatusSchema };
