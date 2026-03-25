@@ -46,10 +46,13 @@ model Student {
   tutorId   String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
   schedules Schedule[]
+
   tutor     Tutor?     @relation(fields: [tutorId], references: [id])
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
+
   @@index([tutorId])
 }
 
@@ -75,7 +78,6 @@ model Staff {
 
 model Schedule {
   id          String      @id @default(uuid())
-  studentId   String
   tutorId     String
   title       String      @db.VarChar(100)
   type        MeetingType
@@ -89,10 +91,10 @@ model Schedule {
   isCompleted Boolean     @default(false)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  students    Student[]
   tutor       Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
 
-  @@index([studentId])
   @@index([tutorId])
 }
 
