@@ -100,6 +100,7 @@ model Document {
   tutorId     String
   title       String      @db.VarChar(100)
   file        String
+  uploadedById String
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
