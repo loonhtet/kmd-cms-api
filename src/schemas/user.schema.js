@@ -19,13 +19,6 @@ const userSchema = z.object({
     required_error: "Role is required",
     invalid_type_error: "Role must be one of: student, tutor, staff, admin",
   }),
-
-  image: z
-    .string()
-    .url("Image must be a valid URL")
-    .optional()
-    .nullable()
-    .or(z.literal("")),
 });
 
 export { userSchema };

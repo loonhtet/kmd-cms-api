@@ -5,10 +5,18 @@ const getSchedules = async (req, res) => {
   try {
     const { studentId, tutorId, type, isCompleted } = req.query;
 
+    const validTypes = ["VIRTUAL", "IN_PERSON"];
+    const normalizedType = type?.toUpperCase();
+
     const whereClause = {
-      ...(studentId && { studentId }),
+      ...(studentId && {
+        students: {
+          some: { id: studentId },
+        },
+      }),
       ...(tutorId && { tutorId }),
-      ...(type && { type: type.toUpperCase() }),
+      ...(normalizedType &&
+        validTypes.includes(normalizedType) && { type: normalizedType }),
       ...(isCompleted !== undefined && { isCompleted: isCompleted === "true" }),
     };
 
@@ -19,6 +27,7 @@ const getSchedules = async (req, res) => {
           id: true,
           title: true,
           type: true,
+          linkType: true,
           date: true,
           startTime: true,
           endTime: true,
@@ -28,14 +37,11 @@ const getSchedules = async (req, res) => {
           isCompleted: true,
           createdAt: true,
           updatedAt: true,
-          student: {
+          students: {
             select: {
               id: true,
               user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
+                select: { name: true, email: true },
               },
             },
           },
@@ -87,6 +93,7 @@ const getSingleSchedule = async (req, res) => {
         id: true,
         title: true,
         type: true,
+        linkType: true,
         date: true,
         startTime: true,
         endTime: true,
@@ -96,15 +103,10 @@ const getSingleSchedule = async (req, res) => {
         isCompleted: true,
         createdAt: true,
         updatedAt: true,
-        student: {
+        students: {
           select: {
             id: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
+            user: { select: { name: true, email: true } },
           },
         },
         tutor: {
@@ -144,10 +146,11 @@ const getSingleSchedule = async (req, res) => {
 const createSchedule = async (req, res) => {
   try {
     const {
-      studentId,
+      studentIds,
       tutorId,
       title,
       type,
+      linkType,
       date,
       startTime,
       endTime,
@@ -156,46 +159,67 @@ const createSchedule = async (req, res) => {
       note,
     } = req.body;
 
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
+    const students = await prisma.student.findMany({
+      where: { id: { in: studentIds } },
     });
 
-    if (!student) {
+    if (students.length !== studentIds.length) {
       return res.status(404).json({
         status: "error",
-        message: "Student not found",
+        message: "One or more students not found",
       });
     }
 
-    const tutor = await prisma.tutor.findUnique({
-      where: { id: tutorId },
+    const tutor = await prisma.tutor.findUnique({ where: { id: tutorId } });
+    if (!tutor) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Tutor not found" });
+    }
+
+    const parsedStartTime = new Date(`1970-01-01T${startTime}:00.000Z`);
+    const parsedEndTime = new Date(`1970-01-01T${endTime}:00.000Z`);
+
+    const conflict = await prisma.schedule.findFirst({
+      where: {
+        date: new Date(date),
+        AND: [
+          { startTime: { lt: parsedEndTime } },
+          { endTime: { gt: parsedStartTime } },
+        ],
+        OR: [{ tutorId }, { students: { some: { id: { in: studentIds } } } }],
+      },
     });
 
-    if (!tutor) {
-      return res.status(404).json({
+    if (conflict) {
+      return res.status(409).json({
         status: "error",
-        message: "Tutor not found",
+        message:
+          "A schedule conflict exists for the tutor or one of the students",
       });
     }
 
     await prisma.schedule.create({
       data: {
-        studentId,
-        tutorId,
         title,
         type,
+        linkType: linkType || null,
         date: new Date(date),
-        startTime: new Date(`1970-01-01T${startTime}:00.000Z`),
-        endTime: new Date(`1970-01-01T${endTime}:00.000Z`),
+        startTime: parsedStartTime,
+        endTime: parsedEndTime,
         link: link || null,
         location: location || null,
         note: note || null,
+        tutor: { connect: { id: tutorId } },
+        students: {
+          connect: studentIds.map((id) => ({ id })),
+        },
       },
     });
 
     res.status(201).json({
       status: "success",
-      message: "Schedule created successfully",
+      message: "Group schedule created successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -212,6 +236,7 @@ const updateSchedule = async (req, res) => {
     const {
       title,
       type,
+      linkType,
       date,
       startTime,
       endTime,
@@ -219,21 +244,16 @@ const updateSchedule = async (req, res) => {
       location,
       note,
       isCompleted,
+      studentIds,
     } = req.body;
 
     const scheduleExists = await prisma.schedule.findUnique({
       where: { id },
       include: {
-        student: { select: { userId: true } },
+        students: { select: { id: true, userId: true } },
         tutor: { select: { userId: true } },
       },
     });
-
-    console.log("isCompleted raw:", isCompleted);
-    console.log("isCompleted type:", typeof isCompleted);
-    console.log("scheduleExists.isCompleted:", scheduleExists.isCompleted);
-    console.log("student userId:", scheduleExists.student.userId);
-    console.log("tutor userId:", scheduleExists.tutor.userId);
 
     if (!scheduleExists) {
       return res.status(404).json({
@@ -242,9 +262,45 @@ const updateSchedule = async (req, res) => {
       });
     }
 
+    const effectiveType = type ?? scheduleExists.type;
+    const effectiveLinkType =
+      linkType !== undefined ? linkType : scheduleExists.linkType;
+
+    if (effectiveType === "VIRTUAL" && !effectiveLinkType) {
+      return res.status(400).json({
+        status: "error",
+        message: "Link type is required for virtual meetings",
+      });
+    }
+
+    if (effectiveType === "IN_PERSON" && effectiveLinkType) {
+      return res.status(400).json({
+        status: "error",
+        message: "Link type should not be provided for in-person meetings",
+      });
+    }
+    const toMinutes = (t) => {
+      if (t instanceof Date) {
+        return t.getUTCHours() * 60 + t.getUTCMinutes();
+      }
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    const effectiveStartTime = startTime ?? scheduleExists.startTime;
+    const effectiveEndTime = endTime ?? scheduleExists.endTime;
+
+    if (toMinutes(effectiveEndTime) <= toMinutes(effectiveStartTime)) {
+      return res.status(400).json({
+        status: "error",
+        message: "End time must be after start time",
+      });
+    }
+
     const updateData = {
       ...(title && { title }),
       ...(type && { type }),
+      ...(linkType !== undefined && { linkType: linkType || null }),
       ...(date && { date: new Date(date) }),
       ...(startTime && {
         startTime: new Date(`1970-01-01T${startTime}:00.000Z`),
@@ -254,22 +310,35 @@ const updateSchedule = async (req, res) => {
       ...(location !== undefined && { location: location || null }),
       ...(note !== undefined && { note: note || null }),
       ...(isCompleted !== undefined && { isCompleted }),
+
+      ...(studentIds && {
+        students: {
+          set: [],
+          connect: studentIds.map((sid) => ({ id: sid })),
+        },
+      }),
     };
 
     await prisma.$transaction(async (tx) => {
-      await tx.schedule.update({
+      const updatedSchedule = await tx.schedule.update({
         where: { id },
         data: updateData,
+        include: {
+          students: { select: { userId: true } },
+        },
       });
 
       if (isCompleted === true && !scheduleExists.isCompleted) {
         const scheduleDate = date ? new Date(date) : scheduleExists.date;
 
+        const userIdsToUpdate = [
+          scheduleExists.tutor.userId,
+          ...updatedSchedule.students.map((s) => s.userId),
+        ];
+
         await tx.user.updateMany({
           where: {
-            id: {
-              in: [scheduleExists.student.userId, scheduleExists.tutor.userId],
-            },
+            id: { in: userIdsToUpdate },
           },
           data: { lastActive: scheduleDate },
         });
