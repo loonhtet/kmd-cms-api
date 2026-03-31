@@ -5,6 +5,13 @@ const assignStudentToTutor = async (req, res) => {
   try {
     const { studentIds, tutorId } = req.body;
 
+    if (studentIds.length > 10) {
+      return res.status(400).json({
+        status: "error",
+        message: "Cannot assign more than 10 students at once",
+      });
+    }
+
     // Verify tutor exists
     const tutor = await prisma.tutor.findUnique({
       where: { id: tutorId },
@@ -13,7 +20,7 @@ const assignStudentToTutor = async (req, res) => {
           select: {
             id: true,
             name: true,
-            email: true
+            email: true,
           },
         },
       },
@@ -64,11 +71,6 @@ const assignStudentToTutor = async (req, res) => {
       });
     }
 
-    // Check which students are already assigned to other tutors
-    // const alreadyAssigned = students.filter(
-    //   (student) => student.tutorId && student.tutorId !== tutorId,
-    // );
-
     // Update all students to new tutor
     await prisma.student.updateMany({
       where: {
@@ -118,7 +120,6 @@ const assignStudentToTutor = async (req, res) => {
             tutorId: {
               not: tutor.user.id,
             },
-
           },
         });
         await prisma.conversation.create({
@@ -153,7 +154,7 @@ const assignStudentToTutor = async (req, res) => {
               tutorEmail: tutor.user.email,
             },
           });
-          await delay(600); // wait 0.6 second between each email
+          await delay(600);
         }
       }
 
@@ -170,7 +171,6 @@ const assignStudentToTutor = async (req, res) => {
           },
         });
       }
-
     } catch (error) {
       console.error("Email sending failed:", error.message);
     }
@@ -193,16 +193,6 @@ const assignStudentToTutor = async (req, res) => {
           studentName: student.user.name,
           studentEmail: student.user.email,
         })),
-        // reassignedFromOtherTutors:
-        //   alreadyAssigned.length > 0
-        //     ? {
-        //         count: alreadyAssigned.length,
-        //         details: alreadyAssigned.map((s) => ({
-        //           studentName: s.user.name,
-        //           previousTutorName: s.tutor?.user?.name || "Unknown",
-        //         })),
-        //       }
-        //     : undefined,
       },
     });
   } catch (error) {
@@ -230,8 +220,8 @@ const unassignStudentFromTutor = async (req, res) => {
         tutor: {
           select: {
             userId: true,
-          }
-        }
+          },
+        },
       },
     });
 
@@ -393,12 +383,12 @@ const getStudentWithTutor = async (req, res) => {
         hasTutor: !!student.tutor,
         tutor: student.tutor
           ? {
-            userId: student.tutor.userId,
-            name: student.tutor.user.name,
-            email: student.tutor.user.email,
-            image: student.tutor.user.image,
-            assignedAt: student.updatedAt,
-          }
+              userId: student.tutor.userId,
+              name: student.tutor.user.name,
+              email: student.tutor.user.email,
+              image: student.tutor.user.image,
+              assignedAt: student.updatedAt,
+            }
           : null,
       },
     });

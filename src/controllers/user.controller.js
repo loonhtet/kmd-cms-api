@@ -5,7 +5,6 @@ import paginate from "../utils/pagination.js";
 const getUsers = async (req, res) => {
   try {
     const { role, search, assigned } = req.query;
-
     const whereClause = {
       ...(role && {
         role: {
@@ -16,6 +15,24 @@ const getUsers = async (req, res) => {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
           { email: { contains: search, mode: "insensitive" } },
+          {
+            studentProfile: {
+              tutor: {
+                user: {
+                  name: { contains: search, mode: "insensitive" },
+                },
+              },
+            },
+          },
+          {
+            studentProfile: {
+              tutor: {
+                user: {
+                  email: { contains: search, mode: "insensitive" },
+                },
+              },
+            },
+          },
         ],
       }),
       ...(assigned === "true" && {
@@ -29,7 +46,6 @@ const getUsers = async (req, res) => {
         },
       }),
     };
-
     const [
       result,
       totalStudents,
@@ -68,7 +84,6 @@ const getUsers = async (req, res) => {
         },
         orderBy: { createdAt: "desc" },
       }),
-
       prisma.student.count(),
       prisma.tutor.count(),
       prisma.staff.count({ where: { isAdmin: false } }),
@@ -76,7 +91,6 @@ const getUsers = async (req, res) => {
       prisma.student.count({ where: { tutorId: { not: null } } }),
       prisma.student.count({ where: { tutorId: null } }),
     ]);
-
     const transformedData = result.data.map((user) => ({
       ...user,
       role: user.role?.role || null,
@@ -95,7 +109,6 @@ const getUsers = async (req, res) => {
       tutorProfile: user.tutorProfile ?? null,
       staffProfile: user.staffProfile ?? null,
     }));
-
     res.status(200).json({
       status: "success",
       data: transformedData,
