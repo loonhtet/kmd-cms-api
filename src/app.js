@@ -15,32 +15,43 @@ import emailRouter from "./routes/email.route.js";
 import blogRouter from "./routes/blog.route.js";
 import rateLimit from "express-rate-limit";
 import scheduleRouter from "./routes/schedule.route.js";
+import documentRouter from "./routes/document.route.js";
 import sidebarRouter from "./routes/sidebar.route.js";
 import tagRouter from "./routes/tag.router.js";
 import userJob from "./jobs/user.job.js";
 import userActivityRouter from "./routes/userActivity.route.js";
 import cronRouter from "./routes/corn.route.js";
+<<<<<<< HEAD
+=======
+import dashboardRouter from "./routes/dashboard.route.js";
+>>>>>>> develop
 
 config();
-connectDB();
-userJob();
+// connectDB() and userJob() removed here — they live inside startServer() only
 
 const app = express();
-const server = http.createServer(app);
-const io = initSocket(server);
-app.set("io", io);
 
-const globalLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  max: 500,
-  message: {
-    success: false,
-    message: "Too many requests, please try again later.",
-  },
-});
+const startServer = async () => {
+  await connectDB();
+  userJob();
 
-app.use(
-  cors({
+  const server = http.createServer(app);
+  const io = initSocket(server);
+  app.set("io", io);
+  app.set("trust proxy", 1);
+
+  const globalLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 500,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+      success: false,
+      message: "Too many requests, please try again later.",
+    },
+  });
+
+  const corsOptions = {
     origin: [
       "http://localhost:3000",
       "http://localhost:3001",
@@ -49,16 +60,31 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
+  };
 
-app.options("*", cors());
+  app.options("*", cors(corsOptions));
+  app.use(cors(corsOptions));
+  app.use(globalLimiter);
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+  app.use("/api/v1/auth", authRouter);
+  app.use("/api/v1/users", protect, userRouter);
+  app.use("/api/v1/roles", protect, roleRouter);
+  app.use("/api/v1/conversation", protect, conversationRouter);
+  app.use("/api/v1/allocate", protect, allocateRouter);
+  app.use("/api/v1/schedule", protect, scheduleRouter);
+  app.use("/api/v1/documents", protect, documentRouter);
+  app.use("/api/v1/email", protect, emailRouter);
+  app.use("/api/v1/blogs", protect, blogRouter);
+  app.use("/api/v1/tags", tagRouter);
+  app.use("/api/v1/sidebar", protect, sidebarRouter);
+  app.use("/api/v1/user-activity", protect, userActivityRouter);
+  app.use("/api/v1/dashboard", protect, dashboardRouter);
 
-app.use(globalLimiter);
+  app.use("/api/v1/cron", cronRouter);
 
+<<<<<<< HEAD
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/roles", protect, roleRouter);
@@ -76,19 +102,27 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     message: "Route not found",
+=======
+  app.use((req, res) => {
+    res.status(404).json({ success: false, message: "Route not found" });
+>>>>>>> develop
   });
-});
 
-app.use((err, req, res) => {
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || "Internal server error",
+  app.use((err, req, res, next) => {
+    console.error(`[Error] ${err.status || 500} - ${err.message}`, err.stack);
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal server error",
+    });
   });
-});
 
-server.listen(process.env.PORT, () => {
-  console.log(`Server running on http://localhost:${process.env.PORT}`);
-});
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+};
+
+startServer();
 
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled rejection", err);

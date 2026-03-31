@@ -17,6 +17,7 @@ model User {
   resetOTPExpiry                            DateTime?
   lastActive                                DateTime?
   lastInactiveEmailSent                     DateTime?
+  lastLogin                                 DateTime?
   Conversation_Conversation_studentIdToUser Conversation[] @relation("Conversation_studentIdToUser")
   Conversation_Conversation_tutorIdToUser   Conversation[] @relation("Conversation_tutorIdToUser")
   Message_Message_receiverIdToUser          Message[]      @relation("Message_receiverIdToUser")
@@ -46,9 +47,12 @@ model Student {
   tutorId   String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
   schedules Schedule[]
+
   tutor     Tutor?     @relation(fields: [tutorId], references: [id])
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
 
   @@index([tutorId])
 }
@@ -61,6 +65,7 @@ model Tutor {
   schedules Schedule[]
   students  Student[]
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+   documents Document[]
 }
 
 model Staff {
@@ -74,7 +79,6 @@ model Staff {
 
 model Schedule {
   id          String      @id @default(uuid())
-  studentId   String
   tutorId     String
   title       String      @db.VarChar(100)
   type        MeetingType
@@ -88,12 +92,29 @@ model Schedule {
   isCompleted Boolean     @default(false)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  students    Student[]
+  tutor       Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+
+  @@index([tutorId])
+}
+
+model Document {
+  id          String      @id @default(uuid())
+  studentId   String
+  tutorId     String
+  title       String      @db.VarChar(100)
+  file        String
+  uploadedById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
   student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   tutor       Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
 
   @@index([studentId])
   @@index([tutorId])
 }
+
 
 model Blog {
   id         String     @id @default(uuid())
@@ -155,6 +176,8 @@ model Message {
   conversationId                String
   senderId                      String
   receiverId                    String
+  isRead                        Boolean      @default(false)
+  readAt                        DateTime?
   createdAt                     DateTime     @default(now())
   updatedAt                     DateTime     @updatedAt
   content                       String

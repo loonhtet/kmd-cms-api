@@ -5,6 +5,13 @@ const assignStudentToTutor = async (req, res) => {
   try {
     const { studentIds, tutorId } = req.body;
 
+    if (studentIds.length > 10) {
+      return res.status(400).json({
+        status: "error",
+        message: "Cannot assign more than 10 students at once",
+      });
+    }
+
     // Verify tutor exists
     const tutor = await prisma.tutor.findUnique({
       where: { id: tutorId },
@@ -13,7 +20,7 @@ const assignStudentToTutor = async (req, res) => {
           select: {
             id: true,
             name: true,
-            email:true
+            email: true,
           },
         },
       },
@@ -64,11 +71,6 @@ const assignStudentToTutor = async (req, res) => {
       });
     }
 
-    // Check which students are already assigned to other tutors
-    // const alreadyAssigned = students.filter(
-    //   (student) => student.tutorId && student.tutorId !== tutorId,
-    // );
-
     // Update all students to new tutor
     await prisma.student.updateMany({
       where: {
@@ -110,8 +112,16 @@ const assignStudentToTutor = async (req, res) => {
       },
     });
 
-     if (updatedStudents.length > 0) {
+    if (updatedStudents.length > 0) {
       for (const student of updatedStudents) {
+        await prisma.conversation.deleteMany({
+          where: {
+            studentId: student.user.id,
+            tutorId: {
+              not: tutor.user.id,
+            },
+          },
+        });
         await prisma.conversation.create({
           data: {
             studentId: student.user.id,
@@ -124,47 +134,46 @@ const assignStudentToTutor = async (req, res) => {
     // =========================
     // Send emails
     // =========================
-   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-      try {
-        const studentNamesString = updatedStudents
-          .map((s) => s.user.name)
-          .join(", ");
+    try {
+      const studentNamesString = updatedStudents
+        .map((s) => s.user.name)
+        .join(", ");
 
-        // Send emails to students sequentially
-        for (const student of updatedStudents) {
-          if (student.user.email) {
-            console.log("Sending email to student:", student.user.email);
-            await sendEmail({
-              to: student.user.email,
-              type: "student-assigned",
-              variables: {
-                studentName: student.user.name,
-                tutorName: tutor.user.name,
-                tutorEmail: tutor.user.email,
-              },
-            });
-            await delay(600); // wait 0.6 second between each email
-          }
-        }
-
-        // Send email to tutor after students
-        if (tutor.user.email) {
-          console.log("Sending email to tutor:", tutor.user.email);
+      // Send emails to students sequentially
+      for (const student of updatedStudents) {
+        if (student.user.email) {
+          console.log("Sending email to student:", student.user.email);
           await sendEmail({
-            to: tutor.user.email,
-            type: "tutor-assigned",
+            to: student.user.email,
+            type: "student-assigned",
             variables: {
+              studentName: student.user.name,
               tutorName: tutor.user.name,
-              studentNames: studentNamesString,
-              studentCount: updatedStudents.length,
+              tutorEmail: tutor.user.email,
             },
           });
+          await delay(600);
         }
-
-      } catch (error) {
-        console.error("Email sending failed:", error.message);
       }
+
+      // Send email to tutor after students
+      if (tutor.user.email) {
+        console.log("Sending email to tutor:", tutor.user.email);
+        await sendEmail({
+          to: tutor.user.email,
+          type: "tutor-assigned",
+          variables: {
+            tutorName: tutor.user.name,
+            studentNames: studentNamesString,
+            studentCount: updatedStudents.length,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Email sending failed:", error.message);
+    }
 
     const studentNames = students.map((s) => s.user.name).join(", ");
     const message =
@@ -184,16 +193,6 @@ const assignStudentToTutor = async (req, res) => {
           studentName: student.user.name,
           studentEmail: student.user.email,
         })),
-        // reassignedFromOtherTutors:
-        //   alreadyAssigned.length > 0
-        //     ? {
-        //         count: alreadyAssigned.length,
-        //         details: alreadyAssigned.map((s) => ({
-        //           studentName: s.user.name,
-        //           previousTutorName: s.tutor?.user?.name || "Unknown",
-        //         })),
-        //       }
-        //     : undefined,
       },
     });
   } catch (error) {
@@ -218,11 +217,11 @@ const unassignStudentFromTutor = async (req, res) => {
           },
         },
 
-        tutor:{
-          select:{
-            userId:true,
-          }
-        }
+        tutor: {
+          select: {
+            userId: true,
+          },
+        },
       },
     });
 
@@ -240,14 +239,14 @@ const unassignStudentFromTutor = async (req, res) => {
       });
     }
 
-   const updatedStudent = await prisma.student.update({
+    const updatedStudent = await prisma.student.update({
       where: { id: studentId },
       data: {
         tutorId: null,
       },
     });
 
-    if(updatedStudent) {
+    if (updatedStudent) {
       await prisma.conversation.deleteMany({
         where: {
           studentId: student.userId,
@@ -384,12 +383,12 @@ const getStudentWithTutor = async (req, res) => {
         hasTutor: !!student.tutor,
         tutor: student.tutor
           ? {
-            userId: student.tutor.userId,
-            name: student.tutor.user.name,
-            email: student.tutor.user.email,
-            image: student.tutor.user.image,
-            assignedAt: student.updatedAt,
-          }
+              userId: student.tutor.userId,
+              name: student.tutor.user.name,
+              email: student.tutor.user.email,
+              image: student.tutor.user.image,
+              assignedAt: student.updatedAt,
+            }
           : null,
       },
     });

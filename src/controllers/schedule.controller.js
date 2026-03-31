@@ -9,7 +9,11 @@ const getSchedules = async (req, res) => {
     const normalizedType = type?.toUpperCase();
 
     const whereClause = {
-      ...(studentId && { studentId }),
+      ...(studentId && {
+        students: {
+          some: { id: studentId },
+        },
+      }),
       ...(tutorId && { tutorId }),
       ...(normalizedType &&
         validTypes.includes(normalizedType) && { type: normalizedType }),
@@ -33,14 +37,11 @@ const getSchedules = async (req, res) => {
           isCompleted: true,
           createdAt: true,
           updatedAt: true,
-          student: {
+          students: {
             select: {
               id: true,
               user: {
-                select: {
-                  name: true,
-                  email: true,
-                },
+                select: { name: true, email: true },
               },
             },
           },
@@ -102,15 +103,10 @@ const getSingleSchedule = async (req, res) => {
         isCompleted: true,
         createdAt: true,
         updatedAt: true,
-        student: {
+        students: {
           select: {
             id: true,
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
+            user: { select: { name: true, email: true } },
           },
         },
         tutor: {
@@ -150,7 +146,7 @@ const getSingleSchedule = async (req, res) => {
 const createSchedule = async (req, res) => {
   try {
     const {
-      studentId,
+      studentIds,
       tutorId,
       title,
       type,
@@ -163,26 +159,22 @@ const createSchedule = async (req, res) => {
       note,
     } = req.body;
 
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
+    const students = await prisma.student.findMany({
+      where: { id: { in: studentIds } },
     });
 
-    if (!student) {
+    if (students.length !== studentIds.length) {
       return res.status(404).json({
         status: "error",
-        message: "Student not found",
+        message: "One or more students not found",
       });
     }
 
-    const tutor = await prisma.tutor.findUnique({
-      where: { id: tutorId },
-    });
-
+    const tutor = await prisma.tutor.findUnique({ where: { id: tutorId } });
     if (!tutor) {
-      return res.status(404).json({
-        status: "error",
-        message: "Tutor not found",
-      });
+      return res
+        .status(404)
+        .json({ status: "error", message: "Tutor not found" });
     }
 
     const parsedStartTime = new Date(`1970-01-01T${startTime}:00.000Z`);
@@ -191,25 +183,24 @@ const createSchedule = async (req, res) => {
     const conflict = await prisma.schedule.findFirst({
       where: {
         date: new Date(date),
-        OR: [{ studentId }, { tutorId }],
         AND: [
           { startTime: { lt: parsedEndTime } },
           { endTime: { gt: parsedStartTime } },
         ],
+        OR: [{ tutorId }, { students: { some: { id: { in: studentIds } } } }],
       },
     });
 
     if (conflict) {
       return res.status(409).json({
         status: "error",
-        message: "A schedule conflict exists for the selected time slot",
+        message:
+          "A schedule conflict exists for the tutor or one of the students",
       });
     }
 
     await prisma.schedule.create({
       data: {
-        studentId,
-        tutorId,
         title,
         type,
         linkType: linkType || null,
@@ -219,12 +210,16 @@ const createSchedule = async (req, res) => {
         link: link || null,
         location: location || null,
         note: note || null,
+        tutor: { connect: { id: tutorId } },
+        students: {
+          connect: studentIds.map((id) => ({ id })),
+        },
       },
     });
 
     res.status(201).json({
       status: "success",
-      message: "Schedule created successfully",
+      message: "Group schedule created successfully",
     });
   } catch (error) {
     res.status(500).json({
@@ -249,12 +244,13 @@ const updateSchedule = async (req, res) => {
       location,
       note,
       isCompleted,
+      studentIds,
     } = req.body;
 
     const scheduleExists = await prisma.schedule.findUnique({
       where: { id },
       include: {
-        student: { select: { userId: true } },
+        students: { select: { id: true, userId: true } },
         tutor: { select: { userId: true } },
       },
     });
@@ -270,7 +266,6 @@ const updateSchedule = async (req, res) => {
     const effectiveLinkType =
       linkType !== undefined ? linkType : scheduleExists.linkType;
 
-    // Cross-validate type vs linkType
     if (effectiveType === "VIRTUAL" && !effectiveLinkType) {
       return res.status(400).json({
         status: "error",
@@ -284,10 +279,6 @@ const updateSchedule = async (req, res) => {
         message: "Link type should not be provided for in-person meetings",
       });
     }
-
-    const effectiveStartTime = startTime ?? scheduleExists.startTime;
-    const effectiveEndTime = endTime ?? scheduleExists.endTime;
-
     const toMinutes = (t) => {
       if (t instanceof Date) {
         return t.getUTCHours() * 60 + t.getUTCMinutes();
@@ -295,6 +286,9 @@ const updateSchedule = async (req, res) => {
       const [h, m] = t.split(":").map(Number);
       return h * 60 + m;
     };
+
+    const effectiveStartTime = startTime ?? scheduleExists.startTime;
+    const effectiveEndTime = endTime ?? scheduleExists.endTime;
 
     if (toMinutes(effectiveEndTime) <= toMinutes(effectiveStartTime)) {
       return res.status(400).json({
@@ -306,7 +300,6 @@ const updateSchedule = async (req, res) => {
     const updateData = {
       ...(title && { title }),
       ...(type && { type }),
-      // Allow linkType to be explicitly set to null (e.g. switching to IN_PERSON)
       ...(linkType !== undefined && { linkType: linkType || null }),
       ...(date && { date: new Date(date) }),
       ...(startTime && {
@@ -317,22 +310,35 @@ const updateSchedule = async (req, res) => {
       ...(location !== undefined && { location: location || null }),
       ...(note !== undefined && { note: note || null }),
       ...(isCompleted !== undefined && { isCompleted }),
+
+      ...(studentIds && {
+        students: {
+          set: [],
+          connect: studentIds.map((sid) => ({ id: sid })),
+        },
+      }),
     };
 
     await prisma.$transaction(async (tx) => {
-      await tx.schedule.update({
+      const updatedSchedule = await tx.schedule.update({
         where: { id },
         data: updateData,
+        include: {
+          students: { select: { userId: true } },
+        },
       });
 
       if (isCompleted === true && !scheduleExists.isCompleted) {
         const scheduleDate = date ? new Date(date) : scheduleExists.date;
 
+        const userIdsToUpdate = [
+          scheduleExists.tutor.userId,
+          ...updatedSchedule.students.map((s) => s.userId),
+        ];
+
         await tx.user.updateMany({
           where: {
-            id: {
-              in: [scheduleExists.student.userId, scheduleExists.tutor.userId],
-            },
+            id: { in: userIdsToUpdate },
           },
           data: { lastActive: scheduleDate },
         });

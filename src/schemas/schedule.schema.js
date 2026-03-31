@@ -2,9 +2,11 @@ import z from "zod/v3";
 
 const scheduleSchema = z
   .object({
-    studentId: z
-      .string({ required_error: "Student ID is required" })
-      .uuid("Student ID must be a valid UUID"),
+    studentIds: z
+      .array(z.string().uuid("Each Student ID must be a valid UUID"), {
+        required_error: "Student IDs are required",
+      })
+      .min(1, "At least one Student ID must be provided"),
     tutorId: z
       .string({ required_error: "Tutor ID is required" })
       .uuid("Tutor ID must be a valid UUID"),

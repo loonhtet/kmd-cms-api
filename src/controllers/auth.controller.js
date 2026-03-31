@@ -52,13 +52,27 @@ const login = async (req, res) => {
 };
 
 const logout = async (req, res) => {
-  res.clearCookie("jwtToken", {
-    httpOnly: true,
-  });
-  res.status(200).json({
-    status: "success",
-    message: "User logged out successfully",
-  });
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { lastLogin: new Date() },
+    });
+
+    res.clearCookie("jwtToken", {
+      httpOnly: true,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "User logged out successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Could not logout",
+      error: error.message,
+    });
+  }
 };
 
 const sendOTP = async (req, res) => {
