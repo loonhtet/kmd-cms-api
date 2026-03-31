@@ -17,6 +17,7 @@ model User {
   resetOTPExpiry                            DateTime?
   lastActive                                DateTime?
   lastInactiveEmailSent                     DateTime?
+  lastLogin                                 DateTime?
   Conversation_Conversation_studentIdToUser Conversation[] @relation("Conversation_studentIdToUser")
   Conversation_Conversation_tutorIdToUser   Conversation[] @relation("Conversation_tutorIdToUser")
   Message_Message_receiverIdToUser          Message[]      @relation("Message_receiverIdToUser")
