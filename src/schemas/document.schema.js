@@ -2,13 +2,18 @@
 import { z } from "zod";
 
 export const documentSchema = z.object({
-  studentId: z.string().uuid(),
-  tutorId: z.string().uuid(),
+  userId: z.string().uuid(),
   title: z.string().min(1).max(100),
-  file: z.string().min(1),
+  studentId: z.union([
+    z.string().uuid(),
+    z.array(z.string().uuid())
+  ]).optional()
 });
-
 export const updateDocumentSchema = z.object({
+  userId: z.string().uuid().optional(),
   title: z.string().min(1).max(100).optional(),
-  file: z.string().min(1).optional(),
-});                
+  studentId: z.union([
+    z.string().uuid(),
+    z.array(z.string().uuid())
+  ]).optional()
+});
