@@ -13,12 +13,13 @@ import {
   resetPasswordSchema,
   verifyOTPSchema,
 } from "../schemas/auth.schema.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const authRouter = Router();
 
 authRouter.post("/login", validate(authSchema), login);
 
-authRouter.post("/logout", logout);
+authRouter.post("/logout", protect, logout);
 
 authRouter.post("/forgot-password", validate(forgotPasswordSchema), sendOTP);
 
