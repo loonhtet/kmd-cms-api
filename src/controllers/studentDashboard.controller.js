@@ -259,66 +259,36 @@ const getActivityTrends = async (req, res) => {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
     );
 
-    const [schedules, messages, documents] = await Promise.all([
-      prisma.schedule.findMany({
+    // Fetch counts only instead of full records
+    const [meetingsCount, messagesCount, documentsCount] = await Promise.all([
+      prisma.schedule.count({
         where: {
           students: { some: { id: student.id } },
           createdAt: { gte: monthStart, lt: nextMonthStart },
         },
-        select: { createdAt: true },
       }),
-      prisma.message.findMany({
+      prisma.message.count({
         where: {
           receiverId: userId,
           isRead: false,
           createdAt: { gte: monthStart, lt: nextMonthStart },
         },
-        select: { createdAt: true },
       }),
-      prisma.document.findMany({
+      prisma.document.count({
         where: {
           studentId: student.id,
           createdAt: { gte: monthStart, lt: nextMonthStart },
         },
-        select: { createdAt: true },
       }),
     ]);
 
-    const bucketByWeek = (records) => {
-      const map = new Map();
-      records.forEach(({ createdAt }) => {
-        const weekStart = getUTCWeekStart(new Date(createdAt)).toISOString();
-        map.set(weekStart, (map.get(weekStart) ?? 0) + 1);
-      });
-      return map;
-    };
-
-    const meetingMap = bucketByWeek(schedules);
-    const messageMap = bucketByWeek(messages);
-    const documentMap = bucketByWeek(documents);
-
-    const allWeekKeys = [
-      ...new Set([
-        ...meetingMap.keys(),
-        ...messageMap.keys(),
-        ...documentMap.keys(),
-      ]),
-    ].sort();
-
-    const toSeries = (map) =>
-      allWeekKeys.map((key, index) => ({
-        id: index,
-        value: map.get(key) ?? 0,
-        label: `week${index + 1}`,
-      }));
-
     res.status(200).json({
       status: "success",
-      data: {
-        meetings: toSeries(meetingMap),
-        messages: toSeries(messageMap),
-        documents: toSeries(documentMap),
-      },
+      data: [
+        { id: 0, value: meetingsCount, label: "meetings" },
+        { id: 1, value: messagesCount, label: "messages" },
+        { id: 2, value: documentsCount, label: "documents" },
+      ],
     });
   } catch (error) {
     res.status(500).json({
