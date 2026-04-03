@@ -22,6 +22,7 @@ import userJob from "./jobs/user.job.js";
 import userActivityRouter from "./routes/userActivity.route.js";
 import cronRouter from "./routes/corn.route.js";
 import dashboardRouter from "./routes/dashboard.route.js";
+import studentDashboardRouter from "./routes/studentDashboard.route.js";
 
 config();
 // connectDB() and userJob() removed here — they live inside startServer() only
@@ -78,6 +79,7 @@ const startServer = async () => {
   app.use("/api/v1/sidebar", protect, sidebarRouter);
   app.use("/api/v1/user-activity", protect, userActivityRouter);
   app.use("/api/v1/dashboard", protect, dashboardRouter);
+  app.use("/api/v1/student-dashboard", protect, studentDashboardRouter);
 
   app.use("/api/v1/cron", cronRouter);
 
