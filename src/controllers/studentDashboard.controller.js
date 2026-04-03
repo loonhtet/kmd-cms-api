@@ -112,41 +112,45 @@ const getStudentDashboardStats = async (req, res) => {
 
     const now = new Date();
 
-    const [upcomingMeetings, unreadMessages, documentsShared, completedSchedules] =
-      await Promise.all([
-        // Upcoming meetings: schedules with date >= now
-        prisma.schedule.count({
-          where: {
-            students: { some: { id: student.id } },
-            date: { gte: now },
-          },
-        }),
+    const [
+      upcomingMeetings,
+      unreadMessages,
+      documentsShared,
+      completedSchedules,
+    ] = await Promise.all([
+      // Upcoming meetings: schedules with date >= now
+      prisma.schedule.count({
+        where: {
+          students: { some: { id: student.id } },
+          date: { gte: now },
+        },
+      }),
 
-        // Unread messages: messages received by this user that are unread
-        prisma.message.count({
-          where: {
-            receiverId: userId,
-            isRead: false,
-          },
-        }),
+      // Unread messages: messages received by this user that are unread
+      prisma.message.count({
+        where: {
+          receiverId: userId,
+          isRead: false,
+        },
+      }),
 
-        // Documents shared: total documents for this student
-        prisma.document.count({
-          where: { studentId: student.id },
-        }),
+      // Documents shared: total documents for this student
+      prisma.document.count({
+        where: { studentId: student.id },
+      }),
 
-        // Completed schedules with time info for meeting hours calculation
-        prisma.schedule.findMany({
-          where: {
-            students: { some: { id: student.id } },
-            isCompleted: true,
-          },
-          select: {
-            startTime: true,
-            endTime: true,
-          },
-        }),
-      ]);
+      // Completed schedules with time info for meeting hours calculation
+      prisma.schedule.findMany({
+        where: {
+          students: { some: { id: student.id } },
+          isCompleted: true,
+        },
+        select: {
+          startTime: true,
+          endTime: true,
+        },
+      }),
+    ]);
 
     // Calculate total meeting hours from completed schedules
     let totalMeetingMinutes = 0;
@@ -231,4 +235,103 @@ const getRecentMessages = async (req, res) => {
   }
 };
 
-export { getWeeklyMeetingStatistics, getStudentDashboardStats, getRecentMessages };
+const getActivityTrends = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const student = await prisma.student.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!student) {
+      return res.status(404).json({
+        status: "error",
+        message: "Student profile not found",
+      });
+    }
+
+    const now = new Date();
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const nextMonthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
+
+    const [schedules, messages, documents] = await Promise.all([
+      prisma.schedule.findMany({
+        where: {
+          students: { some: { id: student.id } },
+          createdAt: { gte: monthStart, lt: nextMonthStart },
+        },
+        select: { createdAt: true },
+      }),
+      prisma.message.findMany({
+        where: {
+          receiverId: userId,
+          isRead: false,
+          createdAt: { gte: monthStart, lt: nextMonthStart },
+        },
+        select: { createdAt: true },
+      }),
+      prisma.document.findMany({
+        where: {
+          studentId: student.id,
+          createdAt: { gte: monthStart, lt: nextMonthStart },
+        },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    const bucketByWeek = (records) => {
+      const map = new Map();
+      records.forEach(({ createdAt }) => {
+        const weekStart = getUTCWeekStart(new Date(createdAt)).toISOString();
+        map.set(weekStart, (map.get(weekStart) ?? 0) + 1);
+      });
+      return map;
+    };
+
+    const meetingMap = bucketByWeek(schedules);
+    const messageMap = bucketByWeek(messages);
+    const documentMap = bucketByWeek(documents);
+
+    const allWeekKeys = [
+      ...new Set([
+        ...meetingMap.keys(),
+        ...messageMap.keys(),
+        ...documentMap.keys(),
+      ]),
+    ].sort();
+
+    const toSeries = (map) =>
+      allWeekKeys.map((key, index) => ({
+        id: index,
+        value: map.get(key) ?? 0,
+        label: `week${index + 1}`,
+      }));
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        meetings: toSeries(meetingMap),
+        messages: toSeries(messageMap),
+        documents: toSeries(documentMap),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: "error",
+      message: "Failed to fetch activity trends",
+      error: error.message,
+    });
+  }
+};
+
+export {
+  getWeeklyMeetingStatistics,
+  getStudentDashboardStats,
+  getRecentMessages,
+  getActivityTrends,
+};
