@@ -146,11 +146,11 @@ export const getDocuments = async (req, res) => {
 export const createDocument = async (req, res) => {
   let uploadedKey = null;
   try {
-    const { userId, title, studentId } = req.body;
+    const { title, studentId } = req.body;
+    const userId = req.user.id;
 
     if (!req.file)
       return res.status(400).json({ status: "error", message: "File is required" });
-
     uploadedKey = await uploadToCloudflare(req.file, "documents/");
 
     // Get user info
