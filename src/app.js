@@ -72,7 +72,7 @@ const startServer = async () => {
   app.use("/api/v1/conversation", protect, conversationRouter);
   app.use("/api/v1/allocate", protect, allocateRouter);
   app.use("/api/v1/schedule", protect, scheduleRouter);
-  app.use("/api/v1/documents", documentRouter);
+  app.use("/api/v1/documents",protect, documentRouter);
   app.use("/api/v1/email", protect, emailRouter);
   app.use("/api/v1/blogs", protect, blogRouter);
   app.use("/api/v1/tags", tagRouter);

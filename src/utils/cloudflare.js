@@ -27,7 +27,7 @@ export const uploadToCloudflare = async (file, folder = "general/") => {
       ContentType: file.mimetype,
     })
   );
-  console.log(`Uploaded to: ${fileName}`); // Fixed syntax
+  // console.log(`Uploaded to: ${fileName}`); // Fixed syntax
 
   return fileName; // Returns "blogs/1771865617408-testvdo.MOV"
 };
