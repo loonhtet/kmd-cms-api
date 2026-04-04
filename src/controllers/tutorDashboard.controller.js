@@ -2,13 +2,11 @@ import { prisma } from "../config/db.js";
 
 export const getTutorDashboard = async (req, res) => {
   try {
-    const userId = "f9e201a3-3ea0-4466-a91d-e680b67e9a1b";
-    // const userId = req.user.id;
+    const userId = req.user.id;
 
     const tutor = await prisma.tutor.findUnique({
       where: { userId }
     });
-    console.log("Tutor found:", tutor);
 
     if (!tutor) {
       return res.status(404).json({ message: "Tutor not found" });
@@ -47,10 +45,11 @@ export const getTutorDashboard = async (req, res) => {
 
       // 💬 unread messages
       prisma.message.count({
-        where: {
-          receiverId: userId
-        }
-      }),
+          where: {
+            receiverId: userId,
+            isRead: false,
+          },
+        }),
 
       // 🕒 next meeting
       prisma.schedule.findFirst({
@@ -64,7 +63,7 @@ export const getTutorDashboard = async (req, res) => {
       }),
 
       // 📈 weekly stats
-      getWeeklyStats(tutor.id),
+      getWeeklyMeetingStatisticsForTutor(tutor.id),
 
       // 📊 activity trends
       getActivityTrends(tutor.id)
@@ -88,89 +87,136 @@ export const getTutorDashboard = async (req, res) => {
   }
 };
 
+export const getWeeklyMeetingStatisticsForTutor = async (tutorId) => {
+  try {
+    const chartRows = await prisma.$queryRaw`
+      SELECT
+        'week' || ROW_NUMBER() OVER (ORDER BY week_start) AS week_key,
+        COUNT(*)::int AS scheduled,
+        COUNT(*) FILTER (WHERE "isCompleted" IS TRUE)::int AS completed
+      FROM (
+        SELECT
+          "date",
+          "isCompleted",
+          DATE_TRUNC('week', "date") AS week_start
+        FROM "Schedule"
+        WHERE date >= DATE_TRUNC('week', NOW()) - INTERVAL '6 weeks'
+            AND date < DATE_TRUNC('week', NOW()) + INTERVAL '1 week'
+          AND "tutorId" = ${tutorId}
+      ) sub
+      GROUP BY week_start
+      ORDER BY week_start;
+    `;
 
-const getWeeklyStats = async (tutorId) => {
-  const now = new Date();
+    const weeklyMeetingStatistics = {};
 
-  // last 5 weeks
-  const start = new Date();
-  start.setDate(now.getDate() - 35);
-
-  const schedules = await prisma.schedule.findMany({
-    where: {
-      tutorId,
-      date: { gte: start }
+    for (const row of chartRows) {
+      weeklyMeetingStatistics[row.week_key] = [
+        row.completed,
+        row.scheduled - row.completed, // notCompleted
+      ];
     }
-  });
 
-  // initialize fixed structure
-  const result = {
-    week1: [0, 0],
-    week2: [0, 0],
-    week3: [0, 0],
-    week4: [0, 0],
-    week5: [0, 0]
-  };
+    return {
+      status: "success",
+      data: weeklyMeetingStatistics,
+    };
 
-  schedules.forEach((s) => {
-    const diffDays = Math.floor((now - new Date(s.date)) / (1000 * 60 * 60 * 24));
-    const weekIndex = 4 - Math.floor(diffDays / 7); // map to week1 → week5
-
-    if (weekIndex >= 0 && weekIndex < 5) {
-      const key = `week${weekIndex + 1}`;
-
-      if (s.isCompleted) {
-        result[key][0] += 1; // completed
-      } else {
-        result[key][1] += 1; // scheduled
-      }
-    }
-  });
-
-  return result;
+  } catch (error) {
+    return {
+      status: "error",
+      message: "Failed to fetch weekly meeting statistics",
+      error: error.message,
+    };
+  }
 };
 
+export const getActivityTrends = async (tutorId) => {
+  try {
+    const now = new Date();
+    const start = new Date();
+    start.setDate(now.getDate() - 42); // 7 weeks
 
-const getActivityTrends = async (tutorId) => {
-  const now = new Date();
-  const start = new Date();
-  start.setDate(now.getDate() - 35);
+    // align to start of week (Monday)
+    start.setHours(0, 0, 0, 0);
 
-  const [meetings, documents, blogs] = await Promise.all([
-    prisma.schedule.findMany({
-      where: { tutorId, createdAt: { gte: start } }
-    }),
-    prisma.document.findMany({
-      where: { tutorId, createdAt: { gte: start } }
-    }),
-    prisma.blog.findMany({
-      where: { createdAt: { gte: start } }
-    })
-  ]);
-
-  const result = {
-    week1: [0, 0, 0],
-    week2: [0, 0, 0],
-    week3: [0, 0, 0],
-    week4: [0, 0, 0],
-    week5: [0, 0, 0]
-  };
-
-  const process = (items, index) => {
-    items.forEach((item) => {
-      const diffDays = Math.floor((now - new Date(item.createdAt)) / (1000 * 60 * 60 * 24));
-      const weekIndex = 4 - Math.floor(diffDays / 7);
-
-      if (weekIndex >= 0 && weekIndex < 5) {
-        const key = `week${weekIndex + 1}`;
-        result[key][index] += 1;
-      }
+    // ✅ get tutor userId (for blogs)
+    const tutor = await prisma.tutor.findUnique({
+      where: { id: tutorId },
+      select: { userId: true },
     });
-  };
 
-  process(meetings, 0);   // meetings
-  process(documents, 1);  // documents
-  process(blogs, 2);      // blogs
+    if (!tutor) {
+      return {
+        status: "error",
+        message: "Tutor not found",
+      };
+    }
 
-  return result;
+    const userId = tutor.userId;
+
+    // ✅ fetch minimal data (NOT full records)
+    const [meetings, documents, blogs] = await Promise.all([
+      prisma.schedule.findMany({
+        where: {
+          tutorId,
+          date: { gte: start },
+        },
+        select: { date: true },
+      }),
+      prisma.document.findMany({
+        where: {
+          tutorId,
+          createdAt: { gte: start },
+        },
+        select: { createdAt: true },
+      }),
+      prisma.blog.findMany({
+        where: {
+          userId,
+          createdAt: { gte: start },
+        },
+        select: { createdAt: true },
+      }),
+    ]);
+
+    // ✅ prepare 7 weeks
+    const result = {};
+    for (let i = 0; i < 7; i++) {
+      result[`week${i + 1}`] = [0, 0, 0]; // [meetings, documents, blogs]
+    }
+
+    const getWeekIndex = (date) => {
+      const diffDays = Math.floor((now - new Date(date)) / (1000 * 60 * 60 * 24));
+      return 6 - Math.floor(diffDays / 7);
+    };
+
+    // ✅ process function
+    const process = (items, index, field) => {
+      items.forEach((item) => {
+        const weekIndex = getWeekIndex(item[field]);
+
+        if (weekIndex >= 0 && weekIndex < 7) {
+          const key = `week${weekIndex + 1}`;
+          result[key][index] += 1;
+        }
+      });
+    };
+
+    process(meetings, 0, "date");
+    process(documents, 1, "createdAt");
+    process(blogs, 2, "createdAt");
+
+    return {
+      status: "success",
+      data: result,
+    };
+
+  } catch (error) {
+    return {
+      status: "error",
+      message: "Failed to fetch activity trends",
+      error: error.message,
+    };
+  }
 };
