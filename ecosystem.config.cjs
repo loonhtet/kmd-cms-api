@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: "kmd-cms-api",
-      script: "src/index.js",
+      script: "src/app.js",
       interpreter: "node",
       watch: false,
     },
