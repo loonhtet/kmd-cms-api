@@ -54,6 +54,7 @@ const startServer = async () => {
       "http://localhost:3000",
       "http://localhost:3001",
       "https://dev-e-tutoring-seven.vercel.app",
+      "https://e-tutoring-seven.vercel.app",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
