@@ -134,11 +134,13 @@ export const getWeeklyMeetingStatisticsForTutor = async (tutorId) => {
 export const getActivityTrends = async (tutorId) => {
   try {
     const now = new Date();
-    const start = new Date();
-    start.setDate(now.getDate() - 42); // 7 weeks
+    const monthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const nextMonthStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+    );
 
-    // align to start of week (Monday)
-    start.setHours(0, 0, 0, 0);
 
     // ✅ get tutor userId (for blogs)
     const tutor = await prisma.tutor.findUnique({
@@ -157,56 +159,30 @@ export const getActivityTrends = async (tutorId) => {
 
     // ✅ fetch minimal data (NOT full records)
     const [meetings, documents, blogs] = await Promise.all([
-      prisma.schedule.findMany({
+      prisma.schedule.count({
         where: {
           tutorId,
-          date: { gte: start },
+          createdAt: { gte: monthStart, lt: nextMonthStart },
         },
-        select: { date: true },
       }),
-      prisma.document.findMany({
+      prisma.document.count({
         where: {
           tutorId,
-          createdAt: { gte: start },
+          createdAt: { gte: monthStart, lt: nextMonthStart },
         },
-        select: { createdAt: true },
       }),
-      prisma.blog.findMany({
+      prisma.blog.count({
         where: {
           userId,
-          createdAt: { gte: start },
+          createdAt: { gte: monthStart, lt: nextMonthStart },
         },
-        select: { createdAt: true },
       }),
     ]);
-
-    // ✅ prepare 7 weeks
-    const result = {};
-    for (let i = 0; i < 7; i++) {
-      result[`week${i + 1}`] = [0, 0, 0]; // [meetings, documents, blogs]
-    }
-
-    const getWeekIndex = (date) => {
-      const diffDays = Math.floor((now - new Date(date)) / (1000 * 60 * 60 * 24));
-      return 6 - Math.floor(diffDays / 7);
-    };
-
-    // ✅ process function
-    const process = (items, index, field) => {
-      items.forEach((item) => {
-        const weekIndex = getWeekIndex(item[field]);
-
-        if (weekIndex >= 0 && weekIndex < 7) {
-          const key = `week${weekIndex + 1}`;
-          result[key][index] += 1;
-        }
-      });
-    };
-
-    process(meetings, 0, "date");
-    process(documents, 1, "createdAt");
-    process(blogs, 2, "createdAt");
-
+    const result = [
+      { id: 0, value: meetings, label: "meetings" },
+      { id: 1, value: documents, label: "documents" },
+      { id: 2, value: blogs, label: "blogs" },
+    ];
     return {
       status: "success",
       data: result,
