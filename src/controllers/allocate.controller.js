@@ -280,7 +280,6 @@ const getTutorWithStudents = async (req, res) => {
             id: true,
             name: true,
             email: true,
-            image: true,
           },
         },
         students: {
@@ -290,7 +289,6 @@ const getTutorWithStudents = async (req, res) => {
                 id: true,
                 name: true,
                 email: true,
-                image: true,
               },
             },
           },
@@ -322,7 +320,6 @@ const getTutorWithStudents = async (req, res) => {
           userId: student.userId,
           name: student.user.name,
           email: student.user.email,
-          image: student.user.image,
           assignedAt: student.updatedAt,
         })),
       },
@@ -348,7 +345,6 @@ const getStudentWithTutor = async (req, res) => {
             id: true,
             name: true,
             email: true,
-            image: true,
           },
         },
         tutor: {
@@ -358,7 +354,6 @@ const getStudentWithTutor = async (req, res) => {
                 id: true,
                 name: true,
                 email: true,
-                image: true,
               },
             },
           },
@@ -379,14 +374,12 @@ const getStudentWithTutor = async (req, res) => {
         studentId: student.userId,
         studentName: student.user.name,
         studentEmail: student.user.email,
-        studentImage: student.user.image,
         hasTutor: !!student.tutor,
         tutor: student.tutor
           ? {
               userId: student.tutor.userId,
               name: student.tutor.user.name,
               email: student.tutor.user.email,
-              image: student.tutor.user.image,
               assignedAt: student.updatedAt,
             }
           : null,

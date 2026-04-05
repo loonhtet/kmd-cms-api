@@ -146,11 +146,11 @@ export const getDocuments = async (req, res) => {
 export const createDocument = async (req, res) => {
   let uploadedKey = null;
   try {
-    const { userId, title, studentId } = req.body;
+    const { title, studentId } = req.body;
+    const userId = req.user.id;
 
     if (!req.file)
       return res.status(400).json({ status: "error", message: "File is required" });
-
     uploadedKey = await uploadToCloudflare(req.file, "documents/");
 
     // Get user info
@@ -166,13 +166,22 @@ export const createDocument = async (req, res) => {
     let studentIds = [];
 
     if (user.studentProfile) {
-      // ❌ Student must have a tutor
+      // Student must have a tutor
       if (!user.studentProfile.tutorId) {
         return res.status(400).json({
           status: "error",
           message: "Student must be assigned to a tutor before uploading documents",
         });
       }
+
+       //Student should NOT send studentId
+    if (studentId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Document uploads are only allowed for your own account.",
+      });
+    }
+
       studentIds = [user.studentProfile.id];
       tutorId = user.studentProfile.tutorId;
     } else if (user.tutorProfile) {

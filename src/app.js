@@ -22,6 +22,7 @@ import userJob from "./jobs/user.job.js";
 import userActivityRouter from "./routes/userActivity.route.js";
 import cronRouter from "./routes/corn.route.js";
 import dashboardRouter from "./routes/dashboard.route.js";
+import studentDashboardRouter from "./routes/studentDashboard.route.js";
 
 config();
 // connectDB() and userJob() removed here — they live inside startServer() only
@@ -52,6 +53,7 @@ const startServer = async () => {
     origin: [
       "http://localhost:3000",
       "http://localhost:3001",
+      "https://dev-e-tutoring-seven.vercel.app",
       "https://e-tutoring-seven.vercel.app",
     ],
     credentials: true,
@@ -71,13 +73,14 @@ const startServer = async () => {
   app.use("/api/v1/conversation", protect, conversationRouter);
   app.use("/api/v1/allocate", protect, allocateRouter);
   app.use("/api/v1/schedule", protect, scheduleRouter);
-  app.use("/api/v1/documents", documentRouter);
+  app.use("/api/v1/documents",protect, documentRouter);
   app.use("/api/v1/email", protect, emailRouter);
   app.use("/api/v1/blogs", protect, blogRouter);
   app.use("/api/v1/tags", tagRouter);
   app.use("/api/v1/sidebar", protect, sidebarRouter);
   app.use("/api/v1/user-activity", protect, userActivityRouter);
   app.use("/api/v1/dashboard", protect, dashboardRouter);
+  app.use("/api/v1/student-dashboard", protect, studentDashboardRouter);
 
   app.use("/api/v1/cron", cronRouter);
 
