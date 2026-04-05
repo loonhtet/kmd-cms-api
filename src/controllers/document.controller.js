@@ -15,7 +15,7 @@ export const getDocument = async (req, res) => {
     const document = await prisma.document.findUnique({
       where: { id },
       include: {
-        student: { include: { user: { select: { id: true, name: true } } } },
+        students: { include: { user: { select: { id: true, name: true } } } },
         tutor: { include: { user: { select: { id: true, name: true } } } },
       },
     });
@@ -25,7 +25,7 @@ export const getDocument = async (req, res) => {
 
     const fileUrl = document.file ? await generateSignedUrl(document.file) : null;
 
-    // Fetch uploader manually
+    // Fetch uploader
     const uploadedBy = await prisma.user.findUnique({
       where: { id: document.uploadedById },
       select: { id: true, name: true },
@@ -37,13 +37,14 @@ export const getDocument = async (req, res) => {
         id: document.id,
         title: document.title,
         fileUrl,
-        student: document.student
-          ? { id: document.student.id, name: document.student.user.name }
-          : null,
+        students: document.students.map((s) => ({
+          id: s.id,
+          name: s.user.name,
+        })),
         tutor: document.tutor
           ? { id: document.tutor.id, name: document.tutor.user.name }
           : null,
-          uploadedBy: uploadedBy
+        uploadedBy: uploadedBy
           ? { id: uploadedBy.id, name: uploadedBy.name }
           : null,
         createdAt: document.createdAt,
@@ -65,15 +66,16 @@ export const getDocuments = async (req, res) => {
 
     let uploadedByIds = undefined;
 
-    // If uploadedByName is provided, find matching user IDs
+    // 🔍 Find users by name (for uploadedBy filter)
     if (uploadedByName) {
       const users = await prisma.user.findMany({
         where: { name: { contains: uploadedByName, mode: "insensitive" } },
         select: { id: true },
       });
+
       uploadedByIds = users.map((u) => u.id);
+
       if (uploadedByIds.length === 0) {
-        // No users match, return empty result
         return res.status(200).json({
           status: "success",
           data: [],
@@ -82,22 +84,39 @@ export const getDocuments = async (req, res) => {
       }
     }
 
+    // ✅ NEW where clause (many-to-many support)
     const whereClause = {
-      ...(studentId && { studentId: String(studentId) }),
+      ...(studentId && {
+        students: {
+          some: { id: String(studentId) },
+        },
+      }),
       ...(tutorId && { tutorId: String(tutorId) }),
-      ...(title && { title: { contains: title, mode: "insensitive" } }),
-      ...(uploadedByIds && { uploadedById: { in: uploadedByIds } }),
+      ...(title && {
+        title: { contains: title, mode: "insensitive" },
+      }),
+      ...(uploadedByIds && {
+        uploadedById: { in: uploadedByIds },
+      }),
     };
 
-    // Fetch documents
+    // 📦 Fetch documents
     const [documents, totalDocuments] = await Promise.all([
       prisma.document.findMany({
         where: whereClause,
         take: take + 1,
         ...(cursor && { cursor: { id: cursor }, skip: 1 }),
         include: {
-          student: { include: { user: { select: { id: true, name: true } } } },
-          tutor: { include: { user: { select: { id: true, name: true } } } },
+          students: {
+            include: {
+              user: { select: { id: true, name: true } },
+            },
+          },
+          tutor: {
+            include: {
+              user: { select: { id: true, name: true } },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -108,7 +127,7 @@ export const getDocuments = async (req, res) => {
     const data = hasNextPage ? documents.slice(0, -1) : documents;
     const nextCursor = hasNextPage ? data[data.length - 1].id : null;
 
-    // Map signed URLs and fetch uploadedBy manually
+    // 🔄 Map result
     const documentsWithUrl = await Promise.all(
       data.map(async (doc) => {
         const fileUrl = await generateSignedUrl(doc.file);
@@ -122,9 +141,16 @@ export const getDocuments = async (req, res) => {
           id: doc.id,
           title: doc.title,
           fileUrl,
-          student: doc.student ? { id: doc.student.id, name: doc.student.user.name } : null,
-          tutor: doc.tutor ? { id: doc.tutor.id, name: doc.tutor.user.name } : null,
-          uploadedBy: uploadedBy ? { id: uploadedBy.id, name: uploadedBy.name } : null,
+          students: doc.students.map((s) => ({
+            id: s.id,
+            name: s.user.name,
+          })),
+          tutor: doc.tutor
+            ? { id: doc.tutor.id, name: doc.tutor.user.name }
+            : null,
+          uploadedBy: uploadedBy
+            ? { id: uploadedBy.id, name: uploadedBy.name }
+            : null,
           createdAt: doc.createdAt,
         };
       })
@@ -133,11 +159,18 @@ export const getDocuments = async (req, res) => {
     return res.status(200).json({
       status: "success",
       data: documentsWithUrl,
-      pagination: { nextCursor, hasNextPage, totalDocuments },
+      pagination: {
+        nextCursor,
+        hasNextPage,
+        totalDocuments,
+      },
     });
   } catch (error) {
     console.error("[getDocuments]", error);
-    return res.status(500).json({ status: "error", message: error.message });
+    return res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
   }
 };
 // ==============================
@@ -202,108 +235,51 @@ export const createDocument = async (req, res) => {
       });
     }
 
-    // Create documents
-    const documents = await Promise.all(
-      studentIds.map((sid) =>
-        prisma.document.create({
-          data: { studentId: sid, tutorId, title, file: uploadedKey, uploadedById: user.id },
-          include: {
-            student: { include: { user: { select: { id: true, name: true } } } },
-            tutor: { include: { user: { select: { id: true, name: true } } } },
+    // Create ONE document with multiple students
+      const document = await prisma.document.create({
+        data: {
+          tutorId,
+          title,
+          file: uploadedKey,
+          uploadedById: user.id,
+          students: {
+            connect: studentIds.map((id) => ({ id }))
+          }
+        },
+        include: {
+          students: {
+            include: {
+              user: { select: { id: true, name: true } }
+            }
           },
-        })
-      )
-    );
+          tutor: {
+            include: {
+              user: { select: { id: true, name: true } }
+            }
+          }
+        }
+      });
 
-    const fileUrl = await generateSignedUrl(documents[0].file);
+      const fileUrl = await generateSignedUrl(document.file);
 
-    return res.status(201).json({
-      status: "success",
-      data: {
-        title,
-        fileUrl,
-        students: documents.map((d) => ({
-          id: d.student.id,
-          name: d.student.user.name,
-        })),
-        tutor: documents[0].tutor
-          ? { id: documents[0].tutor.id, name: documents[0].tutor.user.name }
-          : null,
-        uploadedBy: { id: user.id, name: user.name },
-      },
-    });
+      return res.status(201).json({
+        status: "success",
+        data: {
+          title: document.title,
+          fileUrl,
+          students: document.students.map((s) => ({
+            id: s.id,
+            name: s.user.name,
+          })),
+          tutor: document.tutor
+            ? { id: document.tutor.id, name: document.tutor.user.name }
+            : null,
+          uploadedBy: { id: user.id, name: user.name },
+        },
+      });
   } catch (error) {
     if (uploadedKey) await deleteFromCloudflare(uploadedKey);
     console.error("[createDocument]", error);
-    return res.status(500).json({ status: "error", message: error.message });
-  }
-};
-
-// ==============================
-// UPDATE DOCUMENT
-// ==============================
-export const updateDocument = async (req, res) => {
-  let uploadedKey = null;
-  try {
-    const { id } = req.params;
-    const { title } = req.body;
-
-    const existing = await prisma.document.findUnique({
-      where: { id },
-      include: {
-        student: { include: { user: { select: { id: true, name: true } } } },
-        tutor: { include: { user: { select: { id: true, name: true } } } },
-      },
-    });
-
-    if (!existing)
-      return res.status(404).json({ status: "error", message: "Document not found" });
-
-    if (req.file) {
-      uploadedKey = await uploadToCloudflare(req.file, "documents/");
-      if (existing.file) await deleteFromCloudflare(existing.file);
-    }
-
-    const updated = await prisma.document.update({
-      where: { id },
-      data: { ...(title && { title }), ...(uploadedKey && { file: uploadedKey }) },
-      include: {
-        student: { include: { user: { select: { id: true, name: true } } } },
-        tutor: { include: { user: { select: { id: true, name: true } } } },
-      },
-    });
-
-     // Get signed URL for the updated file
-    const fileUrl = await generateSignedUrl(updated.file);
-
-    // Fetch uploader manually
-    const uploadedBy = await prisma.user.findUnique({
-      where: { id: existing.uploadedById },
-      select: { id: true, name: true },
-    });
-
-    return res.status(200).json({
-      status: "success",
-      data: {
-        id: updated.id,
-        title: updated.title,
-        fileUrl,
-        student: updated.student
-          ? { id: updated.student.id, name: updated.student.user.name }
-          : null,
-        tutor: updated.tutor
-          ? { id: updated.tutor.id, name: updated.tutor.user.name }
-          : null,
-        uploadedBy: uploadedBy
-          ? { id: uploadedBy.id, name: uploadedBy.name }
-          : null,
-        createdAt: updated.createdAt,
-      },
-      message: "Document updated successfully",
-    });
-  } catch (error) {
-    if (uploadedKey) await deleteFromCloudflare(uploadedKey);
-    console.error("[updateDocument]", error);
     return res.status(500).json({ status: "error", message: error.message });
   }
 };
@@ -326,6 +302,77 @@ export const deleteDocument = async (req, res) => {
     return res.status(200).json({ status: "success", message: "Document deleted successfully" });
   } catch (error) {
     console.error("[deleteDocument]", error);
+    return res.status(500).json({ status: "error", message: error.message });
+  }
+};
+
+
+
+// ==============================
+// UPDATE DOCUMENT
+// ==============================
+export const updateDocument = async (req, res) => {
+  let uploadedKey = null;
+  try {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    const existing = await prisma.document.findUnique({
+      where: { id },
+      include: {
+        students: { include: { user: { select: { id: true, name: true } } } },
+        tutor: { include: { user: { select: { id: true, name: true } } } },
+      },
+    });
+
+    if (!existing)
+      return res.status(404).json({ status: "error", message: "Document not found" });
+
+    if (req.file) {
+      uploadedKey = await uploadToCloudflare(req.file, "documents/");
+      if (existing.file) await deleteFromCloudflare(existing.file);
+    }
+
+    const updated = await prisma.document.update({
+      where: { id },
+      data: { ...(title && { title }), ...(uploadedKey && { file: uploadedKey }) },
+      include: {
+        students: { include: { user: { select: { id: true, name: true } } } },
+        tutor: { include: { user: { select: { id: true, name: true } } } },
+      },
+    });
+
+    const fileUrl = await generateSignedUrl(updated.file);
+
+    // Fetch uploader manually
+    const uploadedBy = await prisma.user.findUnique({
+      where: { id: existing.uploadedById },
+      select: { id: true, name: true },
+    });
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        id: updated.id,
+        title: updated.title,
+        fileUrl,
+        students: updated.students.map((s) => ({
+          id: s.id,
+          name: s.user.name,
+        })),
+        tutor: updated.tutor
+          ? { id: updated.tutor.id, name: updated.tutor.user.name }
+          : null,
+        uploadedBy: uploadedBy
+          ? { id: uploadedBy.id, name: uploadedBy.name }
+          : null,
+        createdAt: updated.createdAt,
+      },
+      message: "Document updated successfully",
+    });
+  } catch (error) {
+    if (uploadedKey) await deleteFromCloudflare(uploadedKey);
+    console.error("[updateDocument]", error);
     return res.status(500).json({ status: "error", message: error.message });
   }
 };
