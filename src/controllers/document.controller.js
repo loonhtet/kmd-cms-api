@@ -182,6 +182,9 @@ export const createDocument = async (req, res) => {
     const { title, studentId } = req.body;
     const userId = req.user.id;
 
+//     console.log("studentIds:", studentIds);
+// console.log("lengths:", studentIds.map(id => id.length));
+
     if (!req.file)
       return res.status(400).json({ status: "error", message: "File is required" });
     uploadedKey = await uploadToCloudflare(req.file, "documents/");
@@ -227,7 +230,15 @@ export const createDocument = async (req, res) => {
         });
       }
 
-      studentIds = Array.isArray(studentId) ? studentId : [studentId];
+      
+      if (Array.isArray(studentId)) {
+  studentIds = studentId.map(id => id.trim()); // ✅ FIX
+} else if (typeof studentId === "string") {
+  studentIds = studentId.split(",").map(id => id.trim());
+} else {
+  studentIds = [];
+}
+      // studentIds = Array.isArray(studentId) ? studentId : [studentId];
     } else {
       return res.status(400).json({
         status: "error",
