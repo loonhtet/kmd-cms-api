@@ -276,7 +276,7 @@ const getActivityTrends = async (req, res) => {
       }),
       prisma.document.count({
         where: {
-          studentId: student.id,
+          Student: { some: { id: student.id } },
           createdAt: { gte: monthStart, lt: nextMonthStart },
         },
       }),
