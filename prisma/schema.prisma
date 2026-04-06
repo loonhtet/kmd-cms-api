@@ -96,8 +96,6 @@ model Schedule {
   @@index([tutorId])
 }
 
-<<<<<<< HEAD
-
 model Document {
   id           String     @id @default(uuid())
   tutorId      String
@@ -109,21 +107,6 @@ model Document {
 
   tutor        Tutor      @relation(fields: [tutorId], references: [id], onDelete: Cascade)
   students     Student[]  // many-to-many
-
-=======
-model Document {
-  id           String    @id @default(uuid())
-  tutorId      String
-  title        String    @db.VarChar(100)
-  file         String
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  uploadedById String
-  tutor        Tutor     @relation(fields: [tutorId], references: [id], onDelete: Cascade)
-  Student      Student[]
-
->>>>>>> develop
-  @@index([tutorId])
 }
 
 model Blog {
