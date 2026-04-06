@@ -18,6 +18,8 @@ model User {
   lastActive                                DateTime?
   lastInactiveEmailSent                     DateTime?
   lastLogin                                 DateTime?
+  blogs                                     Blog[]
+  comments                                  Comment[]
   Conversation_Conversation_studentIdToUser Conversation[] @relation("Conversation_studentIdToUser")
   Conversation_Conversation_tutorIdToUser   Conversation[] @relation("Conversation_tutorIdToUser")
   Message_Message_receiverIdToUser          Message[]      @relation("Message_receiverIdToUser")
@@ -25,10 +27,8 @@ model User {
   staffProfile                              Staff?
   studentProfile                            Student?
   tutorProfile                              Tutor?
+  userActivities                            UserActivity[]
   role                                      UserRole?
-  blogs                                     Blog[]
-  comments                                  Comment[]
-  userActivities                           UserActivity[]
 }
 
 model UserRole {
@@ -47,12 +47,10 @@ model Student {
   tutorId   String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-
-  schedules Schedule[]
-
   tutor     Tutor?     @relation(fields: [tutorId], references: [id])
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  documents Document[]
+  Document  Document[]
+  schedules Schedule[] @relation("ScheduleToStudent")
 
   @@index([tutorId])
 }
@@ -62,10 +60,10 @@ model Tutor {
   userId    String     @unique
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  documents Document[]
   schedules Schedule[]
   students  Student[]
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-   documents Document[]
 }
 
 model Staff {
@@ -82,7 +80,6 @@ model Schedule {
   tutorId     String
   title       String      @db.VarChar(100)
   type        MeetingType
-  linkType    LinkType?
   date        DateTime    @db.Date
   startTime   DateTime    @db.Time(6)
   endTime     DateTime    @db.Time(6)
@@ -92,64 +89,57 @@ model Schedule {
   isCompleted Boolean     @default(false)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-
-  students    Student[]
+  linkType    LinkType?
   tutor       Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  students    Student[]   @relation("ScheduleToStudent")
 
   @@index([tutorId])
 }
 
 model Document {
-  id          String      @id @default(uuid())
-  studentId   String
-  tutorId     String
-  title       String      @db.VarChar(100)
-  file        String
+  id           String    @id @default(uuid())
+  tutorId      String
+  title        String    @db.VarChar(100)
+  file         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   uploadedById String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  tutor       Tutor       @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  tutor        Tutor     @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  Student      Student[]
 
-  @@index([studentId])
   @@index([tutorId])
 }
 
-
 model Blog {
-  id         String     @id @default(uuid())
-  title      String
-  content    String
-  userId     String
-  user       User       @relation(fields: [userId], references: [id])
-  slug       String?     @unique
-
-  assetKey   String?
-  assetType  AssetType?
-
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  tags       Tag[]
+  id        String     @id @default(uuid())
+  title     String
+  content   String
+  userId    String
+  assetType AssetType?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  assetKey  String?
+  slug      String?    @unique
+  user      User       @relation(fields: [userId], references: [id])
   comments  Comment[]
+  tags      Tag[]      @relation("BlogToTag")
 }
 
 model Comment {
   id        String   @id @default(uuid())
   content   String
   blogId    String
-  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User       @relation(fields: [userId], references: [id])
+  userId    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Tag {
-  id     String  @id @default(uuid())
-  title  String  @unique
-
-  blogs  Blog[]
+  id    String @id @default(uuid())
+  title String @unique
+  blogs Blog[] @relation("BlogToTag")
 }
 
 model Email {
@@ -176,11 +166,11 @@ model Message {
   conversationId                String
   senderId                      String
   receiverId                    String
-  isRead                        Boolean      @default(false)
-  readAt                        DateTime?
   createdAt                     DateTime     @default(now())
   updatedAt                     DateTime     @updatedAt
   content                       String
+  isRead                        Boolean      @default(false)
+  readAt                        DateTime?
   Conversation                  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   User_Message_receiverIdToUser User         @relation("Message_receiverIdToUser", fields: [receiverId], references: [id], onDelete: Cascade)
   User_Message_senderIdToUser   User         @relation("Message_senderIdToUser", fields: [senderId], references: [id], onDelete: Cascade)
@@ -195,6 +185,15 @@ model Sidebar {
 
   @@unique([role, tab])
   @@index([role])
+}
+
+model UserActivity {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  page      String
+  browser   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 enum RoleType {
@@ -218,13 +217,4 @@ enum LinkType {
 enum AssetType {
   IMAGE
   VIDEO
-}
-
-model UserActivity {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  page      String
-  browser   String
-  createdAt DateTime @default(now())
-  user      User  @relation(fields: [userId], references: [id])
 }
