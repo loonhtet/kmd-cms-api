@@ -136,7 +136,9 @@ const getStudentDashboardStats = async (req, res) => {
 
       // Documents shared: total documents for this student
       prisma.document.count({
-        where: { Student: { some: { id: student.id } } },
+        where: {
+          students: { some: { id: student.id } },
+        },
       }),
 
       // Completed schedules with time info for meeting hours calculation
@@ -275,7 +277,7 @@ const getActivityTrends = async (req, res) => {
       }),
       prisma.document.count({
         where: {
-          Student: { some: { id: student.id } },
+          students: { some: { id: student.id } },
           createdAt: { gte: monthStart, lt: nextMonthStart },
         },
       }),
