@@ -259,7 +259,6 @@ const getActivityTrends = async (req, res) => {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
     );
 
-    // Fetch counts only instead of full records
     const [meetingsCount, messagesCount, documentsCount] = await Promise.all([
       prisma.schedule.count({
         where: {
