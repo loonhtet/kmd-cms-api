@@ -149,11 +149,9 @@ const verifyOTP = async (req, res) => {
 const resetPassword = async (req, res) => {
   try {
     const { email, otp, newPassword } = req.body;
-
     let user;
 
     if (otp) {
-      // OTP version
       user = await prisma.user.findFirst({
         where: {
           email: email,
@@ -179,9 +177,9 @@ const resetPassword = async (req, res) => {
         },
       });
     } else {
-      // Without OTP version
       user = await prisma.user.findFirst({
         where: { email },
+        include: { role: true },
       });
 
       if (!user) {
@@ -191,12 +189,34 @@ const resetPassword = async (req, res) => {
         });
       }
 
+      const requester = await prisma.userRole.findUnique({
+        where: { userId: req.user.id },
+      });
+
+      const requesterRole = requester?.role;
+      const targetRole = user.role?.role;
+
+      // Role-based restrictions
+      if (requesterRole === "STAFF") {
+        if (targetRole === "STAFF" || targetRole === "ADMIN") {
+          return res.status(403).json({
+            status: "error",
+            message: "Staff cannot reset password for other staff or admin",
+          });
+        }
+      }
+
+      if (targetRole === "ADMIN" && requesterRole !== "ADMIN") {
+        return res.status(403).json({
+          status: "error",
+          message: "Only admins can reset another admin's password",
+        });
+      }
+
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       await prisma.user.update({
         where: { id: user.id },
-        data: {
-          password: hashedPassword,
-        },
+        data: { password: hashedPassword },
       });
 
       await sendEmail({
