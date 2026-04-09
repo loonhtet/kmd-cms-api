@@ -198,15 +198,33 @@ const getAllConversations = async (req, res) => {
     const search = req.query.search?.trim();
 
     const whereClause = {
-      OR: [{ studentId: userId }, { tutorId: userId }],
-      ...(search && {
-        User_Conversation_studentIdToUser: {
-          name: {
-            contains: search,
-            mode: "insensitive",
-          },
-        },
-      }),
+      AND: [
+        { OR: [{ studentId: userId }, { tutorId: userId }] },
+        ...(search
+          ? [
+              {
+                OR: [
+                  {
+                    User_Conversation_studentIdToUser: {
+                      name: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                  {
+                    User_Conversation_tutorIdToUser: {
+                      name: {
+                        contains: search,
+                        mode: "insensitive",
+                      },
+                    },
+                  },
+                ],
+              },
+            ]
+          : []),
+      ],
     };
     const data = await prisma.conversation.findMany({
       where: whereClause,
