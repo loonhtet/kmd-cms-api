@@ -203,24 +203,12 @@ const getAllConversations = async (req, res) => {
         ...(search
           ? [
               {
-                OR: [
-                  {
-                    User_Conversation_studentIdToUser: {
-                      name: {
-                        contains: search,
-                        mode: "insensitive",
-                      },
-                    },
+                User_Conversation_studentIdToUser: {
+                  name: {
+                    contains: search,
+                    mode: "insensitive",
                   },
-                  {
-                    User_Conversation_tutorIdToUser: {
-                      name: {
-                        contains: search,
-                        mode: "insensitive",
-                      },
-                    },
-                  },
-                ],
+                },
               },
             ]
           : []),
