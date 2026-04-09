@@ -62,10 +62,10 @@ export const getTutorDashboard = async (req, res) => {
         }
       }),
 
-      // 📈 weekly stats
+      // weekly stats
       getWeeklyMeetingStatisticsForTutor(tutor.id),
 
-      // 📊 activity trends
+      // activity trends
       getActivityTrends(tutor.id)
     ]);
 
@@ -131,18 +131,20 @@ export const getWeeklyMeetingStatisticsForTutor = async (tutorId) => {
   }
 };
 
+
 export const getActivityTrends = async (tutorId) => {
   try {
     const now = new Date();
+
     const monthStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
     );
+
     const nextMonthStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)
     );
 
-
-    // ✅ get tutor userId (for blogs)
+    // ✅ Get tutor userId (for blogs)
     const tutor = await prisma.tutor.findUnique({
       where: { id: tutorId },
       select: { userId: true },
@@ -157,35 +159,65 @@ export const getActivityTrends = async (tutorId) => {
 
     const userId = tutor.userId;
 
-    // ✅ fetch minimal data (NOT full records)
-    const [meetings, documents, blogs] = await Promise.all([
-      prisma.schedule.count({
-        where: {
-          tutorId,
-          createdAt: { gte: monthStart, lt: nextMonthStart },
-        },
-      }),
-      prisma.document.count({
-        where: {
-          tutorId,
-          createdAt: { gte: monthStart, lt: nextMonthStart },
-        },
-      }),
-      prisma.blog.count({
-        where: {
-          userId,
-          createdAt: { gte: monthStart, lt: nextMonthStart },
-        },
-      }),
-    ]);
-    const result = [
-      { id: 0, value: meetings, label: "meetings" },
-      { id: 1, value: documents, label: "documents" },
-      { id: 2, value: blogs, label: "blogs" },
-    ];
+    // ✅ Create week ranges (7-day chunks)
+    const weeks = [];
+    let current = new Date(monthStart);
+
+    while (current < nextMonthStart) {
+      const start = new Date(current);
+      const end = new Date(current);
+      end.setDate(end.getDate() + 7);
+
+      weeks.push({ start, end });
+      current = end;
+    }
+
+    // ✅ Weekly counts (UNCHANGED logic)
+    const weeklyArray = await Promise.all(
+      weeks.map(async (week) => {
+        const [wMeetings, wDocuments, wBlogs] = await Promise.all([
+          prisma.schedule.count({
+            where: {
+              tutorId,
+              createdAt: { gte: week.start, lt: week.end },
+            },
+          }),
+          prisma.document.count({
+            where: {
+              tutorId,
+              createdAt: { gte: week.start, lt: week.end },
+            },
+          }),
+          prisma.blog.count({
+            where: {
+              userId,
+              createdAt: { gte: week.start, lt: week.end },
+            },
+          }),
+        ]);
+
+        return [wMeetings, wDocuments, wBlogs];
+      })
+    );
+
+    // ✅ Determine current week index
+    const currentWeekIndex = Math.floor(
+      (now.getTime() - monthStart.getTime()) / (7 * 24 * 60 * 60 * 1000)
+    );
+
+    // ✅ Limit weeks up to current week
+    const limitedWeeks = weeklyArray.slice(0, currentWeekIndex + 1);
+
+    // ✅ Format response
+    const data = {};
+
+    limitedWeeks.forEach((values, index) => {
+      data[`week${index + 1}`] = values;
+    });
+
     return {
       status: "success",
-      data: result,
+      data,
     };
 
   } catch (error) {
@@ -196,3 +228,94 @@ export const getActivityTrends = async (tutorId) => {
     };
   }
 };
+// export const getActivityTrends = async (tutorId) => {
+//   try {
+//     const now = new Date();
+//     const monthStart = new Date(
+//       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+//     );
+//     const nextMonthStart = new Date(
+//       Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
+//     );
+
+
+//     // get tutor userId (for blogs)
+//     const tutor = await prisma.tutor.findUnique({
+//       where: { id: tutorId },
+//       select: { userId: true },
+//     });
+
+//     if (!tutor) {
+//       return {
+//         status: "error",
+//         message: "Tutor not found",
+//       };
+//     }
+
+//     const userId = tutor.userId;
+
+//     // fetch minimal data (NOT full records)
+//     // const [meetings, documents, blogs] = await Promise.all([
+//     //   prisma.schedule.count({
+//     //     where: {
+//     //       tutorId,
+//     //       createdAt: { gte: monthStart, lt: nextMonthStart },
+//     //     },
+//     //   }),
+//     //   prisma.document.count({
+//     //     where: {
+//     //       tutorId,
+//     //       createdAt: { gte: monthStart, lt: nextMonthStart },
+//     //     },
+//     //   }),
+//     //   prisma.blog.count({
+//     //     where: {
+//     //       userId,
+//     //       createdAt: { gte: monthStart, lt: nextMonthStart },
+//     //     },
+//     //   }),
+//     // ]);
+//     // const result = [
+//     //   { id: 0, value: meetings, label: "meetings" },
+//     //   { id: 1, value: documents, label: "documents" },
+//     //   { id: 2, value: blogs, label: "blogs" },
+//     // ];
+//     // return {
+//     //   status: "success",
+//     //   data: result,
+//     // };
+
+//     const weeklyArray = await Promise.all(
+//   weeks.map(async (week) => {
+//     const [wMeetings, wDocuments, wBlogs] = await Promise.all([
+//       prisma.schedule.count({
+//         where: {
+//           tutorId,
+//           createdAt: { gte: week.start, lt: week.end },
+//         },
+//       }),
+//       prisma.document.count({
+//         where: {
+//           tutorId,
+//           createdAt: { gte: week.start, lt: week.end },
+//         },
+//       }),
+//       prisma.blog.count({
+//         where: {
+//           userId,
+//           createdAt: { gte: week.start, lt: week.end },
+//         },
+//       }),
+//     ]);
+
+//     return [wMeetings, wDocuments, wBlogs];
+//   })
+// );
+//   } catch (error) {
+//     return {
+//       status: "error",
+//       message: "Failed to fetch activity trends",
+//       error: error.message,
+//     };
+//   }
+// };
