@@ -195,9 +195,18 @@ const updateMessageReadStatus = async (req, res) => {
 const getAllConversations = async (req, res) => {
   try {
     const userId = req.user.id;
+    const search = req.query.search?.trim();
 
     const whereClause = {
       OR: [{ studentId: userId }, { tutorId: userId }],
+      ...(search && {
+        User_Conversation_studentIdToUser: {
+          name: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+      }),
     };
     const data = await prisma.conversation.findMany({
       where: whereClause,
